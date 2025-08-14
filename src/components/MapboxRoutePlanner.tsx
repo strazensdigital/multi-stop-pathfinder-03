@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { OrderedStop, formatArrowString, reverseGeocode, toKm, toMiles, toMinutes } from "@/lib/utils";
 
 // Public token can be safely used on the client. Users can override via localStorage key "MAPBOX_TOKEN".
 const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1Ijoia3VsbHVtdXV1IiwiYSI6ImNtZTZqb2d0ODEzajYybHB1Mm0xbzBva2YifQ.zDdnxTggkS-qfrNIoLJwTw";
@@ -60,6 +61,9 @@ const MapboxRoutePlanner: React.FC = () => {
   const [start, setStart] = useState<string>("");
   const [destinations, setDestinations] = useState<string[]>([""]);
   const [loading, setLoading] = useState(false);
+  const [ordered, setOrdered] = useState<OrderedStop[] | null>(null);
+  const [units, setUnits] = useState<'metric'|'imperial'>('metric');
+  const [arrow, setArrow] = useState<string>('');
 
   const canAddDestination = destinations.length < 9; // more than 1 and less than 10 => max 9 stops
 
@@ -94,22 +98,46 @@ const MapboxRoutePlanner: React.FC = () => {
     };
   }, []);
 
-  const updateMarkers = useCallback((points: { coord: LngLat; color: string; label: string; index?: number }[]) => {
+  const attachHoverTooltip = useCallback((map: mapboxgl.Map, marker: mapboxgl.Marker, contentHtml: string) => {
+    const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
+    const el = marker.getElement();
+    const show = () => popup.setLngLat(marker.getLngLat()).setHTML(contentHtml).addTo(map);
+    const hide = () => popup.remove();
+    el.addEventListener('mouseenter', show);
+    el.addEventListener('mouseleave', hide);
+    el.addEventListener('focus', show);
+    el.addEventListener('blur', hide);
+    el.tabIndex = 0;
+  }, []);
+
+  const updateMarkers = useCallback((points: { coord: LngLat; color: string; label: string; role: string; index?: number }[]) => {
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    points.forEach(({ coord, color, label, index }) => {
+    points.forEach(({ coord, color, label, role, index }) => {
       const el = document.createElement("div");
-      el.className = "flex items-center justify-center rounded-full border border-foreground/20 text-[10px] font-medium text-background";
+      el.className = "flex items-center justify-center rounded-full border border-foreground/20 text-[10px] font-medium text-background cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2";
       el.style.width = "22px";
       el.style.height = "22px";
       el.style.backgroundColor = color;
-      el.setAttribute("title", label);
       el.textContent = typeof index === "number" ? (index === 0 ? "S" : String(index)) : "";
+      
       const marker = new mapboxgl.Marker({ element: el }).setLngLat(coord).addTo(mapRef.current!);
+      
+      // Create tooltip content
+      const tooltipContent = `
+        <div class="p-2 text-sm">
+          <div class="font-medium">${label}</div>
+          <div class="text-xs text-muted-foreground mt-1">
+            ${role} · ${coord[1].toFixed(5)}, ${coord[0].toFixed(5)}
+          </div>
+        </div>
+      `;
+      
+      attachHoverTooltip(mapRef.current!, marker, tooltipContent);
       markersRef.current.push(marker);
     });
-  }, []);
+  }, [attachHoverTooltip]);
 
   const fitToBounds = useCallback((coordinates: LngLat[]) => {
     if (!mapRef.current || coordinates.length === 0) return;
@@ -179,6 +207,9 @@ const MapboxRoutePlanner: React.FC = () => {
         destResults.push(r);
       }
 
+      // Store input labels for later use
+      const inputLabels = [start, ...filtered];
+
       // Build coordinates string for Optimization API
       const coords: LngLat[] = [startRes.center, ...destResults.map((r) => r.center)];
       const coordsStr = coords.map((c) => `${c[0]},${c[1]}`).join(";");
@@ -193,19 +224,58 @@ const MapboxRoutePlanner: React.FC = () => {
       const route = trip.geometry as LineString;
       drawRoute({ type: "Feature", geometry: route, properties: {} });
 
-      // Markers in optimized order: Start + Destination 1..N
+      // Build ordered stops with proper labels
       const waypoints = (data?.waypoints || []) as Array<{ waypoint_index: number; location: LngLat; name: string }>;
-      const ordered = waypoints.slice().sort((a, b) => a.waypoint_index - b.waypoint_index);
-      const destinationsOrdered = ordered.slice(1);
-      updateMarkers([
-        { coord: startRes.center, color: "#7c3aed", label: `Start: ${startRes.place_name}`, index: 0 },
-        ...destinationsOrdered.map((w, i) => ({
-          coord: w.location as LngLat,
-          color: "#06b6d4",
-          label: `Destination ${i + 1}: ${w.name || `${w.location[1].toFixed(5)}, ${w.location[0].toFixed(5)}`}`,
-          index: i + 1,
-        })),
-      ]);
+      const orderedWaypoints = waypoints.slice().sort((a, b) => a.waypoint_index - b.waypoint_index);
+      const legs = trip.legs || [];
+
+      const orderedStops: OrderedStop[] = [];
+      
+      for (let i = 0; i < orderedWaypoints.length; i++) {
+        const waypoint = orderedWaypoints[i];
+        const [lng, lat] = waypoint.location;
+        const inputLabel = inputLabels[waypoint.waypoint_index] || '';
+        
+        // Use input label or fallback to reverse geocode or coordinates
+        let label = inputLabel;
+        if (!label || label.match(/^-?\d+\.\d+,\s*-?\d+\.\d+$/)) {
+          // Try reverse geocoding for coordinate inputs or missing labels
+          const reverseLabel = await reverseGeocode(lat, lng, getToken());
+          label = reverseLabel || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        }
+
+        const stop: OrderedStop = {
+          order: i,
+          role: i === 0 ? 'Start' : 'Stop',
+          label,
+          lat,
+          lng,
+        };
+
+        // Add leg info for non-last stops
+        if (i < legs.length) {
+          const leg = legs[i];
+          stop.toNext = {
+            distance_m: leg.distance || 0,
+            duration_s: leg.duration || 0,
+          };
+        }
+
+        orderedStops.push(stop);
+      }
+
+      // Update state
+      setOrdered(orderedStops);
+      setArrow(formatArrowString(orderedStops));
+
+      // Update markers with proper numbering and labels
+      updateMarkers(orderedStops.map((stop, i) => ({
+        coord: [stop.lng, stop.lat] as LngLat,
+        color: i === 0 ? "#7c3aed" : "#06b6d4",
+        label: stop.label,
+        role: stop.role,
+        index: stop.order,
+      })));
 
       fitToBounds(route.coordinates as LngLat[]);
       toast.success("Optimized route ready!");
@@ -215,7 +285,7 @@ const MapboxRoutePlanner: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [start, destinations, drawRoute, updateMarkers, fitToBounds]);
+  }, [start, destinations, drawRoute, updateMarkers, fitToBounds, attachHoverTooltip]);
 
   const addDestination = () => {
     if (!canAddDestination) return;
@@ -297,6 +367,72 @@ const MapboxRoutePlanner: React.FC = () => {
             <Button onClick={optimizeRoute} disabled={loading} variant="hero" className="w-full">
               {loading ? "Optimizing..." : "Find shortest route"}
             </Button>
+
+            {ordered && (
+              <div className="mt-4 space-y-3">
+                <Card className="shadow-[var(--shadow-elegant)]">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold">Route Order</h3>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm">Units</Label>
+                        <select
+                          className="border rounded px-2 py-1 text-sm bg-background"
+                          value={units}
+                          onChange={e => setUnits(e.target.value as any)}
+                        >
+                          <option value="metric">km / min</option>
+                          <option value="imperial">mi / min</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <ul className="divide-y">
+                      {ordered.map((s, idx) => {
+                        const next = s.toNext;
+                        const dist = next ? (units === 'metric' ? `${(toKm(next.distance_m)).toFixed(2)} km` : `${(toMiles(next.distance_m)).toFixed(2)} mi`) : '';
+                        const dur = next ? `${(toMinutes(next.duration_s)).toFixed(0)} min` : '';
+                        return (
+                          <li key={idx} className="py-2 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                                {s.order === 0 ? 'S' : s.order}
+                              </span>
+                              <div>
+                                <div className="font-medium">{s.label}</div>
+                                <div className="text-xs text-muted-foreground">{s.role} · {s.lat.toFixed(5)}, {s.lng.toFixed(5)}</div>
+                              </div>
+                            </div>
+                            {next && (
+                              <span className="text-xs px-2 py-1 rounded bg-muted">{dist} · {dur}</span>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-[var(--shadow-elegant)]">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold">Copy / Export</h4>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(arrow)}>Copy</Button>
+                        <Button size="sm" variant="outline" onClick={() => downloadTxt(arrow, 'route.txt')}>Download .txt</Button>
+                        <Button size="sm" variant="outline" onClick={() => downloadCsv(ordered!, 'route.csv')}>Export CSV</Button>
+                      </div>
+                    </div>
+                    <textarea 
+                      readOnly 
+                      className="w-full rounded border p-2 text-sm bg-background resize-none" 
+                      rows={2} 
+                      value={arrow} 
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -307,5 +443,30 @@ const MapboxRoutePlanner: React.FC = () => {
     </section>
   );
 };
+
+// Helper functions for export
+function downloadTxt(content: string, filename: string) {
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); 
+  a.href = url; 
+  a.download = filename; 
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadCsv(stops: OrderedStop[], filename: string) {
+  const header = 'order,role,label,lat,lng,distance_to_next_m,duration_to_next_s\n';
+  const rows = stops.map(s => [
+    s.order,
+    s.role,
+    `"${s.label.replace(/"/g,'""')}"`,
+    s.lat,
+    s.lng,
+    s.toNext?.distance_m ?? '',
+    s.toNext?.duration_s ?? '',
+  ].join(',')).join('\n');
+  downloadTxt(header + rows, filename);
+}
 
 export default MapboxRoutePlanner;
