@@ -64,6 +64,7 @@ const MapboxRoutePlanner: React.FC = () => {
   const [ordered, setOrdered] = useState<OrderedStop[] | null>(null);
   const [units, setUnits] = useState<'metric'|'imperial'>('metric');
   const [arrow, setArrow] = useState<string>('');
+  const [totals, setTotals] = useState<{distance_m: number; duration_s: number} | null>(null);
 
   const canAddDestination = destinations.length < 9; // more than 1 and less than 10 => max 9 stops
 
@@ -207,8 +208,12 @@ const MapboxRoutePlanner: React.FC = () => {
         destResults.push(r);
       }
 
-      // Store input labels for later use
+      // Store input labels and resolved place names for later use
       const inputLabels = [start, ...filtered];
+      const resolvedInputLabels: string[] = [
+        startRes.place_name || start,
+        ...destResults.map((r, i) => r.place_name || filtered[i])
+      ];
 
       // Build coordinates string for Optimization API
       const coords: LngLat[] = [startRes.center, ...destResults.map((r) => r.center)];
@@ -224,35 +229,38 @@ const MapboxRoutePlanner: React.FC = () => {
       const route = trip.geometry as LineString;
       drawRoute({ type: "Feature", geometry: route, properties: {} });
 
-      // Build ordered stops with proper labels
-      const waypoints = (data?.waypoints || []) as Array<{ waypoint_index: number; location: LngLat; name: string }>;
+      // Build ordered stops with correct labels using original_index
+      type OptWp = { waypoint_index: number; original_index: number; location: LngLat; name: string };
+      const waypoints = (data?.waypoints || []) as OptWp[];
+
+      // Sort by position in optimized trip
       const orderedWaypoints = waypoints.slice().sort((a, b) => a.waypoint_index - b.waypoint_index);
       const legs = trip.legs || [];
 
       const orderedStops: OrderedStop[] = [];
-      
+
       for (let i = 0; i < orderedWaypoints.length; i++) {
-        const waypoint = orderedWaypoints[i];
-        const [lng, lat] = waypoint.location;
-        const inputLabel = inputLabels[waypoint.waypoint_index] || '';
-        
-        // Use input label or fallback to reverse geocode or coordinates
-        let label = inputLabel;
-        if (!label || label.match(/^-?\d+\.\d+,\s*-?\d+\.\d+$/)) {
-          // Try reverse geocoding for coordinate inputs or missing labels
+        const wp = orderedWaypoints[i];
+        const [lng, lat] = wp.location;
+
+        // Use ORIGINAL index to map back to the user's input / geocoded label
+        const orig = wp.original_index;
+        let label = resolvedInputLabels[orig] ?? inputLabels[orig] ?? "";
+
+        // If label looks like coords or is empty, reverse geocode once
+        if (!label || /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(label)) {
           const reverseLabel = await reverseGeocode(lat, lng, getToken());
           label = reverseLabel || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         }
 
         const stop: OrderedStop = {
           order: i,
-          role: i === 0 ? 'Start' : 'Stop',
+          role: i === 0 ? "Start" : "Stop",
           label,
           lat,
           lng,
         };
 
-        // Add leg info for non-last stops
         if (i < legs.length) {
           const leg = legs[i];
           stop.toNext = {
@@ -264,9 +272,18 @@ const MapboxRoutePlanner: React.FC = () => {
         orderedStops.push(stop);
       }
 
+      const totalDistanceM = typeof trip.distance === "number"
+        ? trip.distance
+        : legs.reduce((s, l) => s + (l.distance || 0), 0);
+
+      const totalDurationS = typeof trip.duration === "number"
+        ? trip.duration
+        : legs.reduce((s, l) => s + (l.duration || 0), 0);
+
       // Update state
       setOrdered(orderedStops);
       setArrow(formatArrowString(orderedStops));
+      setTotals({ distance_m: totalDistanceM, duration_s: totalDurationS });
 
       // Update markers with proper numbering and labels
       updateMarkers(orderedStops.map((stop, i) => ({
@@ -374,7 +391,17 @@ const MapboxRoutePlanner: React.FC = () => {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-semibold">Route Order</h3>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        {totals && (
+                          <div className="text-sm text-muted-foreground">
+                            Total:&nbsp;
+                            {units === 'metric'
+                              ? `${(toKm(totals.distance_m)).toFixed(1)} km`
+                              : `${(toMiles(totals.distance_m)).toFixed(1)} mi`
+                            }
+                            &nbsp;·&nbsp;{(toMinutes(totals.duration_s)).toFixed(0)} min
+                          </div>
+                        )}
                         <Label className="text-sm">Units</Label>
                         <select
                           className="border rounded px-2 py-1 text-sm bg-background"
@@ -421,6 +448,13 @@ const MapboxRoutePlanner: React.FC = () => {
                         <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(arrow)}>Copy</Button>
                         <Button size="sm" variant="outline" onClick={() => downloadTxt(arrow, 'route.txt')}>Download .txt</Button>
                         <Button size="sm" variant="outline" onClick={() => downloadCsv(ordered!, 'route.csv')}>Export CSV</Button>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => window.open(buildGoogleMapsUrl(ordered!), "_blank")}
+                        >
+                          Open in Google Maps
+                        </Button>
                       </div>
                     </div>
                     <textarea 
@@ -453,6 +487,21 @@ function downloadTxt(content: string, filename: string) {
   a.download = filename; 
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function buildGoogleMapsUrl(stops: OrderedStop[]) {
+  if (!stops.length) return "";
+  const origin = `${stops[0].lat},${stops[0].lng}`;
+  const destination = `${stops[stops.length - 1].lat},${stops[stops.length - 1].lng}`;
+  const waypoints = stops.slice(1, -1).map(s => `${s.lat},${s.lng}`).join("|");
+  const params = new URLSearchParams({
+    api: "1",
+    origin,
+    destination,
+    travelmode: "driving",
+    ...(waypoints ? { waypoints } : {})
+  });
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
 function downloadCsv(stops: OrderedStop[], filename: string) {
