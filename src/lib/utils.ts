@@ -19,10 +19,12 @@ export const toKm = (m: number) => m / 1000;
 export const toMiles = (m: number) => m / 1609.344;
 export const toMinutes = (s: number) => s / 60;
 
+export function isCoordInput(s: string) {
+  return /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(s.trim());
+}
+
 export function formatArrowString(stops: OrderedStop[]) {
-  return stops
-    .map(s => (s.order === 0 ? `S. ${s.label}` : `${s.order}. ${s.label}`))
-    .join(' → ');
+  return stops.map(s => (s.order === 0 ? `S. ${s.label}` : `${s.order}. ${s.label}`)).join(' → ');
 }
 
 // Cache for reverse geocoding results

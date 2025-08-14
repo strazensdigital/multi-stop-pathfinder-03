@@ -8,7 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { OrderedStop, formatArrowString, reverseGeocode, toKm, toMiles, toMinutes } from "@/lib/utils";
+import { OrderedStop, formatArrowString, reverseGeocode, toKm, toMiles, toMinutes, isCoordInput } from "@/lib/utils";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Info } from "lucide-react";
 
 // Public token can be safely used on the client. Users can override via localStorage key "MAPBOX_TOKEN".
 const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1Ijoia3VsbHVtdXV1IiwiYSI6ImNtZTZqb2d0ODEzajYybHB1Mm0xbzBva2YifQ.zDdnxTggkS-qfrNIoLJwTw";
@@ -57,6 +62,7 @@ const MapboxRoutePlanner: React.FC = () => {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const routeSourceId = useRef<string>("optimized-route");
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const geocodeCache = useRef(new Map<string, {place_name: string, center: [number,number]}>());
 
   const [start, setStart] = useState<string>("");
   const [destinations, setDestinations] = useState<string[]>([""]);
@@ -64,7 +70,21 @@ const MapboxRoutePlanner: React.FC = () => {
   const [ordered, setOrdered] = useState<OrderedStop[] | null>(null);
   const [units, setUnits] = useState<'metric'|'imperial'>('metric');
   const [arrow, setArrow] = useState<string>('');
-  const [totals, setTotals] = useState<{distance_m: number; duration_s: number} | null>(null);
+  const [totalsLive, setTotalsLive] = useState<{distance_m: number; duration_s: number} | null>(null);
+  const [totalsTypical, setTotalsTypical] = useState<{distance_m: number; duration_s: number} | null>(null);
+  const [trafficOn, setTrafficOn] = useState(() => {
+    const saved = localStorage.getItem('route-traffic-enabled');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [stabilizeResults, setStabilizeResults] = useState(() => {
+    const saved = localStorage.getItem('route-stabilize-enabled');
+    return saved ? JSON.parse(saved) : true;
+  });
+  const [currentTheme, setCurrentTheme] = useState('mapbox://styles/mapbox/light-v11');
+  const [showTrafficDialog, setShowTrafficDialog] = useState(false);
+  const [showNewRouteDialog, setShowNewRouteDialog] = useState(false);
+  const [routeOptimized, setRouteOptimized] = useState(false);
+  const [accordionValue, setAccordionValue] = useState<string>("");
 
   const canAddDestination = destinations.length < 9; // more than 1 and less than 10 => max 9 stops
 
@@ -73,7 +93,7 @@ const MapboxRoutePlanner: React.FC = () => {
 
     mapRef.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/light-v11",
+      style: currentTheme,
       center: [0, 20],
       zoom: 1.5,
       projection: "globe",
@@ -83,13 +103,35 @@ const MapboxRoutePlanner: React.FC = () => {
     mapRef.current.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
     mapRef.current.scrollZoom.disable();
 
-    mapRef.current.on("style.load", () => {
-      mapRef.current?.setFog({
+    const handleStyleLoad = () => {
+      if (!mapRef.current) return;
+      
+      mapRef.current.setFog({
         color: "rgb(255, 255, 255)",
         "high-color": "rgb(200, 220, 255)",
         "horizon-blend": 0.2,
       });
-    });
+
+      // Re-add route and markers if they exist
+      if (ordered && ordered.length > 0) {
+        // Re-add route source and layer
+        const existingSource = mapRef.current.getSource(routeSourceId.current);
+        if (!existingSource && routeGeometry.current) {
+          drawRoute(routeGeometry.current);
+        }
+        
+        // Re-add markers
+        updateMarkers(ordered.map((stop, i) => ({
+          coord: [stop.lng, stop.lat] as LngLat,
+          color: i === 0 ? "#7c3aed" : "#06b6d4",
+          label: stop.label,
+          role: stop.role,
+          index: stop.order,
+        })));
+      }
+    };
+
+    mapRef.current.on("style.load", handleStyleLoad);
 
     return () => {
       markersRef.current.forEach((m) => m.remove());
@@ -97,7 +139,9 @@ const MapboxRoutePlanner: React.FC = () => {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [currentTheme]);
+
+  const routeGeometry = useRef<any>(null);
 
   const attachHoverTooltip = useCallback((map: mapboxgl.Map, marker: mapboxgl.Marker, contentHtml: string) => {
     const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
@@ -147,9 +191,11 @@ const MapboxRoutePlanner: React.FC = () => {
     mapRef.current.fitBounds(bounds, { padding: 60, duration: 600 });
   }, []);
 
-  const drawRoute = useCallback((geojson: Feature<LineString>) => {
+  const drawRoute = useCallback((geojson: Feature<LineString>, congestionData?: any[]) => {
     const map = mapRef.current;
     if (!map) return;
+
+    routeGeometry.current = geojson;
 
     const ensureLayer = () => {
       const source = map.getSource(routeSourceId.current) as mapboxgl.GeoJSONSource | undefined;
@@ -159,19 +205,44 @@ const MapboxRoutePlanner: React.FC = () => {
         map.addSource(routeSourceId.current, {
           type: "geojson",
           data: geojson as any,
-          // Needed for line-gradient with line-progress
           lineMetrics: true,
         } as any);
+
+        let linePaint;
+        if (congestionData && trafficOn) {
+          // Create traffic-colored gradient
+          const congestionColors = {
+            low: "#22c55e",     // green
+            moderate: "#eab308", // yellow
+            heavy: "#f97316",   // orange
+            severe: "#ef4444"   // red
+          };
+          
+          const stops: any[] = ["interpolate", ["linear"], ["line-progress"]];
+          congestionData.forEach((level, i) => {
+            const progress = i / (congestionData.length - 1);
+            stops.push(progress, congestionColors[level as keyof typeof congestionColors] || congestionColors.moderate);
+          });
+
+          linePaint = {
+            "line-width": 6,
+            "line-opacity": 0.9,
+            "line-gradient": stops,
+          };
+        } else {
+          linePaint = {
+            "line-width": 6,
+            "line-opacity": 0.9,
+            "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "#7c3aed", 1, "#06b6d4"],
+          };
+        }
+
         map.addLayer({
           id: "route-line",
           type: "line",
           source: routeSourceId.current,
           layout: { "line-cap": "round", "line-join": "round" },
-          paint: {
-            "line-width": 6,
-            "line-opacity": 0.9,
-            "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "#7c3aed", 1, "#06b6d4"],
-          },
+          paint: linePaint,
         });
       }
     };
@@ -181,9 +252,15 @@ const MapboxRoutePlanner: React.FC = () => {
     } else {
       map.once("load", ensureLayer);
     }
-  }, []);
+  }, [trafficOn]);
 
   const optimizeRoute = useCallback(async () => {
+    // Check if traffic preference needs to be asked
+    if (trafficOn === null) {
+      setShowTrafficDialog(true);
+      return;
+    }
+
     setLoading(true);
     try {
       // Validate
@@ -193,99 +270,158 @@ const MapboxRoutePlanner: React.FC = () => {
         return;
       }
       if (filtered.length < 2) {
-        toast.error("Add at least 2 destinations (max 9). ");
+        toast.error("Add at least 2 destinations (max 9).");
         return;
       }
 
-      // Geocode all inputs
-      const startRes = await geocode(start);
+      // Geocode with caching
+      const geocodeWithCache = async (query: string): Promise<GeocodeResult | null> => {
+        const normalizedQuery = query.toLowerCase().replace(/\s+/g, ' ').trim();
+        const cached = geocodeCache.current.get(normalizedQuery);
+        if (cached) {
+          return { place_name: cached.place_name, center: cached.center };
+        }
+
+        const result = await geocode(query);
+        if (result) {
+          geocodeCache.current.set(normalizedQuery, result);
+        }
+        return result;
+      };
+
+      const startRes = await geocodeWithCache(start);
       if (!startRes) throw new Error("Could not geocode start location");
 
       const destResults: GeocodeResult[] = [];
       for (const d of filtered) {
-        const r = await geocode(d);
+        const r = await geocodeWithCache(d);
         if (!r) throw new Error(`Could not geocode destination: ${d}`);
         destResults.push(r);
       }
 
-      // Store input labels and resolved place names for later use
-      const inputLabels = [start, ...filtered];
-      const resolvedInputLabels: string[] = [
-        startRes.place_name || start,
-        ...destResults.map((r, i) => r.place_name || filtered[i])
-      ];
+      // Build stable labels and coordinates
+      const rawInputLabels = [start, ...filtered]; // EXACT typed text
+      
+      let coords: LngLat[];
+      let labelsByStableIndex: string[];
 
-      // Build coordinates string for Optimization API
-      const coords: LngLat[] = [startRes.center, ...destResults.map((r) => r.center)];
+      if (stabilizeResults) {
+        // Build stable destination array by sorting by lng asc, then lat asc
+        const stable = destResults.map((res, i) => ({
+          center: res.center as LngLat,
+          typed: filtered[i]
+        })).sort((a, b) => a.center[0] - b.center[0] || a.center[1] - b.center[1]);
+
+        coords = [startRes.center, ...stable.map(x => x.center)];
+        labelsByStableIndex = [rawInputLabels[0], ...stable.map(x => x.typed)];
+      } else {
+        coords = [startRes.center, ...destResults.map(r => r.center)];
+        labelsByStableIndex = rawInputLabels;
+      }
+
       const coordsStr = coords.map((c) => `${c[0]},${c[1]}`).join(";");
 
-      const url = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordsStr}?source=first&destination=last&roundtrip=false&geometries=geojson&overview=full&access_token=${getToken()}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Optimization request failed");
-      const data = await res.json();
-      const trip = data?.trips?.[0];
-      if (!trip) throw new Error("No route found. Try different locations.");
+      // Build requests
+      const baseParams = `source=first&destination=last&roundtrip=false&geometries=geojson&overview=full&access_token=${getToken()}`;
+      
+      let liveUrl: string;
+      let typicalUrl: string;
 
-      const route = trip.geometry as LineString;
-      drawRoute({ type: "Feature", geometry: route, properties: {} });
+      if (trafficOn) {
+        liveUrl = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving-traffic/${coordsStr}?${baseParams}&annotations=congestion,distance,duration&steps=true`;
+        typicalUrl = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordsStr}?${baseParams}&steps=true`;
+      } else {
+        liveUrl = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordsStr}?${baseParams}`;
+        typicalUrl = liveUrl;
+      }
+
+      // Fetch live route
+      const liveRes = await fetch(liveUrl);
+      if (!liveRes.ok) throw new Error("Optimization request failed");
+      const liveData = await liveRes.json();
+      const liveTrip = liveData?.trips?.[0];
+      if (!liveTrip) throw new Error("No route found. Try different locations.");
+
+      // Fetch typical route if needed
+      let typicalTrip = liveTrip;
+      if (trafficOn && typicalUrl !== liveUrl) {
+        const typicalRes = await fetch(typicalUrl);
+        if (typicalRes.ok) {
+          const typicalData = await typicalRes.json();
+          typicalTrip = typicalData?.trips?.[0] || liveTrip;
+        }
+      }
+
+      const route = liveTrip.geometry as LineString;
+      
+      // Extract congestion data for coloring
+      let congestionData: string[] = [];
+      if (trafficOn && liveTrip.legs) {
+        liveTrip.legs.forEach((leg: any) => {
+          if (leg.annotation?.congestion) {
+            congestionData = congestionData.concat(leg.annotation.congestion);
+          }
+        });
+      }
+
+      drawRoute({ type: "Feature", geometry: route, properties: {} }, congestionData);
 
       // Build ordered stops with correct labels using original_index
       type OptWp = { waypoint_index: number; original_index: number; location: LngLat; name: string };
-      const waypoints = (data?.waypoints || []) as OptWp[];
-
-      // Sort by position in optimized trip
-      const orderedWaypoints = waypoints.slice().sort((a, b) => a.waypoint_index - b.waypoint_index);
-      const legs = trip.legs || [];
+      const waypoints = (liveData?.waypoints || []) as OptWp[];
+      const orderedWps = waypoints.slice().sort((a, b) => a.waypoint_index - b.waypoint_index);
+      const legs = liveTrip.legs || [];
 
       const orderedStops: OrderedStop[] = [];
-
-      for (let i = 0; i < orderedWaypoints.length; i++) {
-        const wp = orderedWaypoints[i];
+      for (let i = 0; i < orderedWps.length; i++) {
+        const wp = orderedWps[i];
         const [lng, lat] = wp.location;
-
-        // Use ORIGINAL index to map back to the user's input / geocoded label
         const orig = wp.original_index;
-        let label = resolvedInputLabels[orig] ?? inputLabels[orig] ?? "";
+        let label = labelsByStableIndex[orig] ?? '';
 
-        // If label looks like coords or is empty, reverse geocode once
-        if (!label || /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(label)) {
+        if (!label || isCoordInput(label)) {
           const reverseLabel = await reverseGeocode(lat, lng, getToken());
           label = reverseLabel || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         }
 
         const stop: OrderedStop = {
           order: i,
-          role: i === 0 ? "Start" : "Stop",
-          label,
-          lat,
-          lng,
+          role: i === 0 ? 'Start' : 'Stop',
+          label, lat, lng
         };
 
         if (i < legs.length) {
           const leg = legs[i];
-          stop.toNext = {
-            distance_m: leg.distance || 0,
-            duration_s: leg.duration || 0,
-          };
+          stop.toNext = { distance_m: leg.distance || 0, duration_s: leg.duration || 0 };
         }
-
         orderedStops.push(stop);
       }
 
-      const totalDistanceM = typeof trip.distance === "number"
-        ? trip.distance
+      // Calculate totals
+      const liveTotalDistanceM = typeof liveTrip.distance === "number"
+        ? liveTrip.distance
         : legs.reduce((s, l) => s + (l.distance || 0), 0);
-
-      const totalDurationS = typeof trip.duration === "number"
-        ? trip.duration
+      const liveTotalDurationS = typeof liveTrip.duration === "number"
+        ? liveTrip.duration
         : legs.reduce((s, l) => s + (l.duration || 0), 0);
+
+      const typicalTotalDurationS = trafficOn && typicalTrip !== liveTrip
+        ? (typeof typicalTrip.duration === "number"
+          ? typicalTrip.duration
+          : (typicalTrip.legs || []).reduce((s: number, l: any) => s + (l.duration || 0), 0))
+        : liveTotalDurationS;
 
       // Update state
       setOrdered(orderedStops);
       setArrow(formatArrowString(orderedStops));
-      setTotals({ distance_m: totalDistanceM, duration_s: totalDurationS });
+      setTotalsLive({ distance_m: liveTotalDistanceM, duration_s: liveTotalDurationS });
+      if (trafficOn) {
+        setTotalsTypical({ distance_m: liveTotalDistanceM, duration_s: typicalTotalDurationS });
+      } else {
+        setTotalsTypical(null);
+      }
 
-      // Update markers with proper numbering and labels
+      // Update markers
       updateMarkers(orderedStops.map((stop, i) => ({
         coord: [stop.lng, stop.lat] as LngLat,
         color: i === 0 ? "#7c3aed" : "#06b6d4",
@@ -295,6 +431,16 @@ const MapboxRoutePlanner: React.FC = () => {
       })));
 
       fitToBounds(route.coordinates as LngLat[]);
+      
+      // Post-optimize UX
+      setRouteOptimized(true);
+      setAccordionValue("order");
+      
+      // Auto-scroll map into view
+      setTimeout(() => {
+        mapContainer.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+
       toast.success("Optimized route ready!");
     } catch (e: any) {
       console.error(e);
@@ -302,7 +448,7 @@ const MapboxRoutePlanner: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [start, destinations, drawRoute, updateMarkers, fitToBounds, attachHoverTooltip]);
+  }, [start, destinations, trafficOn, stabilizeResults, drawRoute, updateMarkers, fitToBounds, attachHoverTooltip]);
 
   const addDestination = () => {
     if (!canAddDestination) return;
@@ -324,6 +470,41 @@ const MapboxRoutePlanner: React.FC = () => {
     }
   };
 
+  const handleNewRoute = () => {
+    setStart("");
+    setDestinations([""]);
+    setOrdered(null);
+    setArrow("");
+    setTotalsLive(null);
+    setTotalsTypical(null);
+    setRouteOptimized(false);
+    setAccordionValue("destinations");
+    
+    // Clear map
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+    
+    const map = mapRef.current;
+    if (map) {
+      const source = map.getSource(routeSourceId.current);
+      if (source) {
+        map.removeLayer("route-line");
+        map.removeSource(routeSourceId.current);
+      }
+    }
+    
+    routeGeometry.current = null;
+    setShowNewRouteDialog(false);
+  };
+
+  const handleTrafficChoice = (choice: boolean) => {
+    setTrafficOn(choice);
+    localStorage.setItem('route-traffic-enabled', JSON.stringify(choice));
+    setShowTrafficDialog(false);
+    // Re-trigger optimization
+    setTimeout(() => optimizeRoute(), 100);
+  };
+
   return (
     <section className="w-full">
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -332,148 +513,280 @@ const MapboxRoutePlanner: React.FC = () => {
             <CardTitle>Plan Your Route</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="start">Starting point</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="start"
-                  placeholder="Address or 'lat, lng'"
-                  value={start}
-                  onChange={(e) => setStart(e.target.value)}
-                />
-                <Button type="button" variant="outline" onClick={setMyLocationAsStart}>
-                  Use my location
-                </Button>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Destinations (2–9)</Label>
-                {canAddDestination && (
-                  <Button type="button" variant="secondary" onClick={addDestination}>
-                    Add destination
-                  </Button>
-                )}
-              </div>
-              <div className="space-y-2">
-                {destinations.map((d, i) => (
-                  <div key={i} className="flex gap-2">
-                    <Input
-                      placeholder={`Destination ${i + 1}`}
-                      value={d}
-                      onChange={(e) =>
-                        setDestinations((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))
-                      }
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => removeDestination(i)}
-                      disabled={destinations.length <= 1}
-                    >
-                      Remove
-                    </Button>
+            <Accordion type="single" value={accordionValue} onValueChange={setAccordionValue} className="w-full">
+              <AccordionItem value="destinations">
+                <AccordionTrigger>
+                  {routeOptimized ? "Edit Destinations" : "Destinations"}
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="start">Starting point</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="start"
+                        placeholder="Address or 'lat, lng'"
+                        value={start}
+                        onChange={(e) => setStart(e.target.value)}
+                      />
+                      <Button type="button" variant="outline" onClick={setMyLocationAsStart}>
+                        Use my location
+                      </Button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            <Button onClick={optimizeRoute} disabled={loading} variant="hero" className="w-full">
-              {loading ? "Optimizing..." : "Find shortest route"}
-            </Button>
+                  <Separator />
 
-            {ordered && (
-              <div className="mt-4 space-y-3">
-                <Card className="shadow-[var(--shadow-elegant)]">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold">Route Order</h3>
-                      <div className="flex items-center gap-3">
-                        {totals && (
-                          <div className="text-sm text-muted-foreground">
-                            Total:&nbsp;
-                            {units === 'metric'
-                              ? `${(toKm(totals.distance_m)).toFixed(1)} km`
-                              : `${(toMiles(totals.distance_m)).toFixed(1)} mi`
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Destinations (2–9)</Label>
+                      {canAddDestination && (
+                        <Button type="button" variant="secondary" onClick={addDestination}>
+                          Add destination
+                        </Button>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      {destinations.map((d, i) => (
+                        <div key={i} className="flex gap-2">
+                          <Input
+                            placeholder={`Destination ${i + 1}`}
+                            value={d}
+                            onChange={(e) =>
+                              setDestinations((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))
                             }
-                            &nbsp;·&nbsp;{(toMinutes(totals.duration_s)).toFixed(0)} min
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => removeDestination(i)}
+                            disabled={destinations.length <= 1}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="traffic"
+                        checked={trafficOn}
+                        onCheckedChange={(checked) => {
+                          setTrafficOn(checked);
+                          localStorage.setItem('route-traffic-enabled', JSON.stringify(checked));
+                        }}
+                      />
+                      <Label htmlFor="traffic" className="text-sm">Account for live traffic</Label>
+                      <Info className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="stabilize"
+                        checked={stabilizeResults}
+                        onCheckedChange={(checked) => {
+                          setStabilizeResults(checked);
+                          localStorage.setItem('route-stabilize-enabled', JSON.stringify(checked));
+                        }}
+                      />
+                      <Label htmlFor="stabilize" className="text-sm">Stable results</Label>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {routeOptimized && (
+                <AccordionItem value="order">
+                  <AccordionTrigger>Route Order</AccordionTrigger>
+                  <AccordionContent>
+                    {ordered && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="font-semibold">Optimized Route</h3>
+                          <div className="flex items-center gap-3">
+                            {totalsLive && (
+                              <div className="text-sm text-muted-foreground">
+                                {trafficOn ? "Live: " : "Total: "}
+                                {units === 'metric'
+                                  ? `${(toKm(totalsLive.distance_m)).toFixed(1)} km`
+                                  : `${(toMiles(totalsLive.distance_m)).toFixed(1)} mi`
+                                }
+                                &nbsp;·&nbsp;{(toMinutes(totalsLive.duration_s)).toFixed(0)} min
+                                {totalsTypical && (
+                                  <>
+                                    <br />Typical: {(toMinutes(totalsTypical.duration_s)).toFixed(0)} min
+                                  </>
+                                )}
+                              </div>
+                            )}
+                            <Label className="text-sm">Units</Label>
+                            <select
+                              className="border rounded px-2 py-1 text-sm bg-background"
+                              value={units}
+                              onChange={e => setUnits(e.target.value as any)}
+                            >
+                              <option value="metric">km / min</option>
+                              <option value="imperial">mi / min</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <ul className="divide-y">
+                          {ordered.map((s, idx) => {
+                            const next = s.toNext;
+                            const dist = next ? (units === 'metric' ? `${(toKm(next.distance_m)).toFixed(2)} km` : `${(toMiles(next.distance_m)).toFixed(2)} mi`) : '';
+                            const dur = next ? `${(toMinutes(next.duration_s)).toFixed(0)} min` : '';
+                            return (
+                              <li key={idx} className="py-2 flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                                    {s.order === 0 ? 'S' : s.order}
+                                  </span>
+                                  <div>
+                                    <div className="font-medium">{s.label}</div>
+                                    <div className="text-xs text-muted-foreground">{s.role} · {s.lat.toFixed(5)}, {s.lng.toFixed(5)}</div>
+                                  </div>
+                                </div>
+                                {next && (
+                                  <span className="text-xs px-2 py-1 rounded bg-muted">{dist} · {dur}</span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+
+                        {trafficOn && (
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span>Traffic Legend:</span>
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 bg-green-500 rounded"></div>
+                              <span>Low</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                              <span>Moderate</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 bg-orange-500 rounded"></div>
+                              <span>Heavy</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 bg-red-500 rounded"></div>
+                              <span>Severe</span>
+                            </div>
                           </div>
                         )}
-                        <Label className="text-sm">Units</Label>
-                        <select
-                          className="border rounded px-2 py-1 text-sm bg-background"
-                          value={units}
-                          onChange={e => setUnits(e.target.value as any)}
-                        >
-                          <option value="metric">km / min</option>
-                          <option value="imperial">mi / min</option>
-                        </select>
-                      </div>
-                    </div>
 
-                    <ul className="divide-y">
-                      {ordered.map((s, idx) => {
-                        const next = s.toNext;
-                        const dist = next ? (units === 'metric' ? `${(toKm(next.distance_m)).toFixed(2)} km` : `${(toMiles(next.distance_m)).toFixed(2)} mi`) : '';
-                        const dur = next ? `${(toMinutes(next.duration_s)).toFixed(0)} min` : '';
-                        return (
-                          <li key={idx} className="py-2 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                                {s.order === 0 ? 'S' : s.order}
-                              </span>
-                              <div>
-                                <div className="font-medium">{s.label}</div>
-                                <div className="text-xs text-muted-foreground">{s.role} · {s.lat.toFixed(5)}, {s.lng.toFixed(5)}</div>
+                        <Card className="shadow-[var(--shadow-elegant)]">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-semibold">Copy / Export</h4>
+                              <div className="flex gap-2 flex-wrap">
+                                <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(arrow)}>Copy</Button>
+                                <Button size="sm" variant="outline" onClick={() => downloadTxt(arrow, 'route.txt')}>Download .txt</Button>
+                                <Button size="sm" variant="outline" onClick={() => downloadCsv(ordered!, 'route.csv')}>Export CSV</Button>
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => window.open(buildGoogleMapsUrl(ordered!), "_blank")}
+                                >
+                                  Google Maps
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => window.open(buildAppleMapsUrl(ordered!), "_blank")}
+                                >
+                                  Apple Maps
+                                </Button>
                               </div>
                             </div>
-                            {next && (
-                              <span className="text-xs px-2 py-1 rounded bg-muted">{dist} · {dur}</span>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="shadow-[var(--shadow-elegant)]">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold">Copy / Export</h4>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(arrow)}>Copy</Button>
-                        <Button size="sm" variant="outline" onClick={() => downloadTxt(arrow, 'route.txt')}>Download .txt</Button>
-                        <Button size="sm" variant="outline" onClick={() => downloadCsv(ordered!, 'route.csv')}>Export CSV</Button>
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => window.open(buildGoogleMapsUrl(ordered!), "_blank")}
-                        >
-                          Open in Google Maps
-                        </Button>
+                            <textarea 
+                              readOnly 
+                              className="w-full rounded border p-2 text-sm bg-background resize-none" 
+                              rows={2} 
+                              value={arrow} 
+                            />
+                          </CardContent>
+                        </Card>
                       </div>
-                    </div>
-                    <textarea 
-                      readOnly 
-                      className="w-full rounded border p-2 text-sm bg-background resize-none" 
-                      rows={2} 
-                      value={arrow} 
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+            </Accordion>
+
+            <div className="flex gap-2">
+              <Button 
+                onClick={optimizeRoute} 
+                disabled={loading} 
+                variant="hero" 
+                className="flex-1"
+              >
+                {loading ? "Optimizing..." : routeOptimized ? "Recalculate route" : "Find shortest route"}
+              </Button>
+              {routeOptimized && (
+                <AlertDialog open={showNewRouteDialog} onOpenChange={setShowNewRouteDialog}>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost">New route</Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Start a new route?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Your current route data will be cleared and you'll start fresh.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleNewRoute}>Start New Route</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Route Map</h3>
+            <Select value={currentTheme} onValueChange={setCurrentTheme}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Map Style" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mapbox://styles/mapbox/light-v11">Light</SelectItem>
+                <SelectItem value="mapbox://styles/mapbox/dark-v11">Dark</SelectItem>
+                <SelectItem value="mapbox://styles/mapbox/traffic-day-v2">Traffic (Day)</SelectItem>
+                <SelectItem value="mapbox://styles/mapbox/traffic-night-v2">Traffic (Night)</SelectItem>
+                <SelectItem value="mapbox://styles/mapbox/navigation-day-v1">Navigation Day</SelectItem>
+                <SelectItem value="mapbox://styles/mapbox/navigation-night-v1">Navigation Night</SelectItem>
+                <SelectItem value="mapbox://styles/mapbox/satellite-streets-v12">Satellite</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div ref={mapContainer} className="w-full h-[420px] lg:h-[620px] rounded-lg shadow-[var(--shadow-elegant)]" />
         </div>
       </div>
+
+      {/* Traffic Dialog */}
+      <AlertDialog open={showTrafficDialog} onOpenChange={setShowTrafficDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Include live traffic in calculations?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will use real-time traffic data to provide more accurate travel times and route coloring.
+              You can change this setting later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleTrafficChoice(false)}>No, use typical times</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleTrafficChoice(true)}>Yes, include traffic</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 };
@@ -502,6 +815,19 @@ function buildGoogleMapsUrl(stops: OrderedStop[]) {
     ...(waypoints ? { waypoints } : {})
   });
   return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function buildAppleMapsUrl(stops: OrderedStop[]) {
+  if (!stops.length) return "";
+  const origin = `${stops[0].lat},${stops[0].lng}`;
+  const destination = `${stops[stops.length - 1].lat},${stops[stops.length - 1].lng}`;
+  const waypoints = stops.slice(1, -1).map(s => `${s.lat},${s.lng}`).join("|");
+  const params = new URLSearchParams({
+    saddr: origin,
+    daddr: destination,
+    ...(waypoints ? { waypoints } : {})
+  });
+  return `https://maps.apple.com/?${params.toString()}`;
 }
 
 function downloadCsv(stops: OrderedStop[], filename: string) {
