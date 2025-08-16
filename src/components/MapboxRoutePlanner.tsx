@@ -387,33 +387,44 @@ const MapboxRoutePlanner: React.FC = () => {
       // Build ordered stops with correct labels using original_index
       type OptWp = { waypoint_index: number; original_index: number; location: LngLat; name: string };
       const waypoints = (liveData?.waypoints || []) as OptWp[];
-      const orderedWps = waypoints.slice().sort((a, b) => a.waypoint_index - b.waypoint_index);
+      const orderedWaypoints = waypoints.slice().sort((a, b) => a.waypoint_index - b.waypoint_index);
       const legs = liveTrip.legs || [];
 
       const orderedStops: OrderedStop[] = [];
-      for (let i = 0; i < orderedWps.length; i++) {
-        const wp = orderedWps[i];
-        const [lng, lat] = wp.location;
-        const orig = wp.original_index;
-        let label = labelsByStableIndex[orig] ?? '';
 
+      for (let i = 0; i < orderedWaypoints.length; i++) {
+        const wp = orderedWaypoints[i];
+        const [lng, lat] = wp.location;
+        const orig = wp.original_index; // maps to labelsByStableIndex
+
+        // ALWAYS prefer the exact typed label
+        let label = (labelsByStableIndex[orig] ?? '').trim();
+
+        // Only reverse geocode when the typed value is coordinates or empty
         if (!label || isCoordInput(label)) {
-          const reverseLabel = await reverseGeocode(lat, lng, getToken());
-          label = reverseLabel || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+          const rev = await reverseGeocode(lat, lng, getToken());
+          label = rev || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         }
 
         const stop: OrderedStop = {
           order: i,
           role: i === 0 ? 'Start' : 'Stop',
-          label, lat, lng
+          label, lat, lng,
         };
 
         if (i < legs.length) {
           const leg = legs[i];
-          stop.toNext = { distance_m: leg.distance || 0, duration_s: leg.duration || 0 };
+          stop.toNext = {
+            distance_m: leg.distance || 0,
+            duration_s: leg.duration || 0,
+          };
         }
         orderedStops.push(stop);
       }
+
+      // Save + render
+      setOrdered(orderedStops);
+      setArrow(formatArrowString(orderedStops));
 
       // Calculate totals
       const liveTotalDistanceM = typeof liveTrip.distance === "number"
@@ -429,9 +440,6 @@ const MapboxRoutePlanner: React.FC = () => {
           : (typicalTrip.legs || []).reduce((s: number, l: any) => s + (l.duration || 0), 0))
         : liveTotalDurationS;
 
-      // Update state
-      setOrdered(orderedStops);
-      setArrow(formatArrowString(orderedStops));
       setTotalsLive({ distance_m: liveTotalDistanceM, duration_s: liveTotalDurationS });
       if (trafficOn) {
         setTotalsTypical({ distance_m: liveTotalDistanceM, duration_s: typicalTotalDurationS });
@@ -439,11 +447,11 @@ const MapboxRoutePlanner: React.FC = () => {
         setTotalsTypical(null);
       }
 
-      // Update markers
+      // IMPORTANT: tooltips must use stop.label
       updateMarkers(orderedStops.map((stop, i) => ({
         coord: [stop.lng, stop.lat] as LngLat,
         color: i === 0 ? "#7c3aed" : "#06b6d4",
-        label: stop.label,
+        label: stop.label,             // <- typed label only
         role: stop.role,
         index: stop.order,
       })));
@@ -732,28 +740,17 @@ const MapboxRoutePlanner: React.FC = () => {
 
                         <Card className="shadow-[var(--shadow-elegant)]">
                           <CardContent className="p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <h4 className="font-semibold">Copy / Export</h4>
-                              <div className="flex gap-2 flex-wrap">
-                                <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(arrow)}>Copy</Button>
-                                <Button size="sm" variant="outline" onClick={() => downloadTxt(arrow, 'route.txt')}>Download .txt</Button>
-                                <Button size="sm" variant="outline" onClick={() => downloadCsv(ordered!, 'route.csv')}>Export CSV</Button>
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => window.open(buildGoogleMapsUrl(ordered!), "_blank")}
-                                >
-                                  Google Maps
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => window.open(buildAppleMapsUrl(ordered!), "_blank")}
-                                >
-                                  Apple Maps
-                                </Button>
-                              </div>
-                            </div>
+                             <div className="flex items-center justify-between mb-3">
+                               <h4 className="font-semibold">Copy / Export</h4>
+                               <div className="flex flex-wrap gap-2">
+                                 <Button size="sm" variant="outline" onClick={() => downloadTxt(arrow, 'route.txt')}>
+                                   Download .txt
+                                 </Button>
+                                 <Button size="sm" variant="default" onClick={() => window.open(buildGoogleMapsUrl(ordered!), '_blank')}>
+                                   Google Maps
+                                 </Button>
+                               </div>
+                             </div>
                             <textarea 
                               readOnly 
                               className="w-full rounded border p-2 text-sm bg-background resize-none" 
@@ -870,31 +867,5 @@ function buildGoogleMapsUrl(stops: OrderedStop[]) {
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
-function buildAppleMapsUrl(stops: OrderedStop[]) {
-  if (!stops.length) return "";
-  const origin = `${stops[0].lat},${stops[0].lng}`;
-  const destination = `${stops[stops.length - 1].lat},${stops[stops.length - 1].lng}`;
-  const waypoints = stops.slice(1, -1).map(s => `${s.lat},${s.lng}`).join("|");
-  const params = new URLSearchParams({
-    saddr: origin,
-    daddr: destination,
-    ...(waypoints ? { waypoints } : {})
-  });
-  return `https://maps.apple.com/?${params.toString()}`;
-}
-
-function downloadCsv(stops: OrderedStop[], filename: string) {
-  const header = 'order,role,label,lat,lng,distance_to_next_m,duration_to_next_s\n';
-  const rows = stops.map(s => [
-    s.order,
-    s.role,
-    `"${s.label.replace(/"/g,'""')}"`,
-    s.lat,
-    s.lng,
-    s.toNext?.distance_m ?? '',
-    s.toNext?.duration_s ?? '',
-  ].join(',')).join('\n');
-  downloadTxt(header + rows, filename);
-}
 
 export default MapboxRoutePlanner;
