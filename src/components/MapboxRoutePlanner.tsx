@@ -84,7 +84,8 @@ const MapboxRoutePlanner: React.FC = () => {
   const [showTrafficDialog, setShowTrafficDialog] = useState(false);
   const [showNewRouteDialog, setShowNewRouteDialog] = useState(false);
   const [routeOptimized, setRouteOptimized] = useState(false);
-  const [accordionValue, setAccordionValue] = useState<string>("");
+  const [showDestinations, setShowDestinations] = useState(true);
+  const [showRouteOrder, setShowRouteOrder] = useState(false);
 
   const canAddDestination = destinations.length < 9; // more than 1 and less than 10 => max 9 stops
 
@@ -113,13 +114,11 @@ const MapboxRoutePlanner: React.FC = () => {
       });
 
       // Re-add route and markers if they exist
+      if (lastRouteGeojson.current) {
+        addOrUpdateRoute(lastRouteGeojson.current, lastPaintOverrides.current);
+      }
+      
       if (ordered && ordered.length > 0) {
-        // Re-add route source and layer
-        const existingSource = mapRef.current.getSource(routeSourceId.current);
-        if (!existingSource && routeGeometry.current) {
-          drawRoute(routeGeometry.current);
-        }
-        
         // Re-add markers
         updateMarkers(ordered.map((stop, i) => ({
           coord: [stop.lng, stop.lat] as LngLat,
@@ -191,60 +190,79 @@ const MapboxRoutePlanner: React.FC = () => {
     mapRef.current.fitBounds(bounds, { padding: 60, duration: 600 });
   }, []);
 
-  const drawRoute = useCallback((geojson: Feature<LineString>, congestionData?: any[]) => {
+  const lastRouteGeojson = useRef<Feature<LineString> | null>(null);
+  const lastPaintOverrides = useRef<any>(null);
+
+  const addOrUpdateRoute = useCallback((geojson: Feature<LineString>, paintOverrides?: any) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Store for rehydration
+    lastRouteGeojson.current = geojson;
+    lastPaintOverrides.current = paintOverrides;
+
+    const source = map.getSource(routeSourceId.current) as mapboxgl.GeoJSONSource | undefined;
+    if (source) {
+      source.setData(geojson as any);
+      // Apply paint overrides
+      if (paintOverrides) {
+        Object.entries(paintOverrides).forEach(([property, value]) => {
+          map.setPaintProperty("route-line", property as any, value);
+        });
+      }
+    } else {
+      map.addSource(routeSourceId.current, {
+        type: "geojson",
+        data: geojson as any,
+        lineMetrics: true,
+      } as any);
+
+      const defaultPaint = {
+        "line-width": 6,
+        "line-opacity": 0.9,
+        "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "#7c3aed", 1, "#06b6d4"],
+      };
+
+      map.addLayer({
+        id: "route-line",
+        type: "line",
+        source: routeSourceId.current,
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { ...defaultPaint, ...paintOverrides },
+      });
+    }
+  }, []);
+
+  const drawRoute = useCallback((geojson: Feature<LineString>, congestionData?: string[]) => {
     const map = mapRef.current;
     if (!map) return;
 
     routeGeometry.current = geojson;
 
+    let paintOverrides = {};
+    if (congestionData && congestionData.length > 0 && trafficOn) {
+      // Create traffic-colored gradient
+      const congestionColors = {
+        low: "#22c55e",     // green
+        moderate: "#eab308", // yellow
+        heavy: "#f97316",   // orange
+        severe: "#ef4444"   // red
+      };
+      
+      const stops: any[] = ["interpolate", ["linear"], ["line-progress"]];
+      congestionData.forEach((level, i) => {
+        const progress = congestionData.length === 1 ? 0 : i / (congestionData.length - 1);
+        const color = congestionColors[level as keyof typeof congestionColors] || congestionColors.moderate;
+        stops.push(progress, color);
+      });
+
+      paintOverrides = {
+        "line-gradient": stops,
+      };
+    }
+
     const ensureLayer = () => {
-      const source = map.getSource(routeSourceId.current) as mapboxgl.GeoJSONSource | undefined;
-      if (source) {
-        source.setData(geojson as any);
-      } else {
-        map.addSource(routeSourceId.current, {
-          type: "geojson",
-          data: geojson as any,
-          lineMetrics: true,
-        } as any);
-
-        let linePaint;
-        if (congestionData && trafficOn) {
-          // Create traffic-colored gradient
-          const congestionColors = {
-            low: "#22c55e",     // green
-            moderate: "#eab308", // yellow
-            heavy: "#f97316",   // orange
-            severe: "#ef4444"   // red
-          };
-          
-          const stops: any[] = ["interpolate", ["linear"], ["line-progress"]];
-          congestionData.forEach((level, i) => {
-            const progress = i / (congestionData.length - 1);
-            stops.push(progress, congestionColors[level as keyof typeof congestionColors] || congestionColors.moderate);
-          });
-
-          linePaint = {
-            "line-width": 6,
-            "line-opacity": 0.9,
-            "line-gradient": stops,
-          };
-        } else {
-          linePaint = {
-            "line-width": 6,
-            "line-opacity": 0.9,
-            "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "#7c3aed", 1, "#06b6d4"],
-          };
-        }
-
-        map.addLayer({
-          id: "route-line",
-          type: "line",
-          source: routeSourceId.current,
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: linePaint,
-        });
-      }
+      addOrUpdateRoute(geojson, paintOverrides);
     };
 
     if (map.isStyleLoaded()) {
@@ -252,7 +270,7 @@ const MapboxRoutePlanner: React.FC = () => {
     } else {
       map.once("load", ensureLayer);
     }
-  }, [trafficOn]);
+  }, [trafficOn, addOrUpdateRoute]);
 
   const optimizeRoute = useCallback(async () => {
     // Check if traffic preference needs to be asked
@@ -434,7 +452,8 @@ const MapboxRoutePlanner: React.FC = () => {
       
       // Post-optimize UX
       setRouteOptimized(true);
-      setAccordionValue("order");
+      setShowDestinations(false);
+      setShowRouteOrder(true);
       
       // Auto-scroll map into view
       setTimeout(() => {
@@ -478,7 +497,8 @@ const MapboxRoutePlanner: React.FC = () => {
     setTotalsLive(null);
     setTotalsTypical(null);
     setRouteOptimized(false);
-    setAccordionValue("destinations");
+    setShowDestinations(true);
+    setShowRouteOrder(false);
     
     // Clear map
     markersRef.current.forEach((m) => m.remove());
@@ -513,13 +533,32 @@ const MapboxRoutePlanner: React.FC = () => {
             <CardTitle>Plan Your Route</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Accordion type="single" value={accordionValue} onValueChange={setAccordionValue} className="w-full">
-              <AccordionItem value="destinations">
-                <AccordionTrigger>
-                  {routeOptimized ? "Edit Destinations" : "Destinations"}
-                </AccordionTrigger>
-                <AccordionContent className="space-y-4">
-                  <div className="space-y-2">
+            <div className="space-y-6">
+              {/* Destinations Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">
+                    {routeOptimized ? "Edit Destinations" : "Destinations"}
+                  </h3>
+                  {routeOptimized && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowDestinations(!showDestinations);
+                        if (!showDestinations) {
+                          setShowRouteOrder(false);
+                        }
+                      }}
+                    >
+                      {showDestinations ? "Collapse" : "Edit list"}
+                    </Button>
+                  )}
+                </div>
+                
+                {(!routeOptimized || showDestinations) && (
+                  <div className="space-y-4 rounded-lg border p-4">
+                    <div className="space-y-2">
                     <Label htmlFor="start">Starting point</Label>
                     <div className="flex gap-2">
                       <Input
@@ -592,15 +631,28 @@ const MapboxRoutePlanner: React.FC = () => {
                       />
                       <Label htmlFor="stabilize" className="text-sm">Stable results</Label>
                     </div>
+                    </div>
                   </div>
-                </AccordionContent>
-              </AccordionItem>
+                )}
+              </div>
 
+              {/* Route Order Section */}
               {routeOptimized && (
-                <AccordionItem value="order">
-                  <AccordionTrigger>Route Order</AccordionTrigger>
-                  <AccordionContent>
-                    {ordered && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Route Order</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowRouteOrder(!showRouteOrder)}
+                    >
+                      {showRouteOrder ? "Collapse" : "Expand"}
+                    </Button>
+                  </div>
+                  
+                  {showRouteOrder && (
+                    <div className="rounded-lg border p-4">
+                      {ordered && (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="font-semibold">Optimized Route</h3>
@@ -710,12 +762,13 @@ const MapboxRoutePlanner: React.FC = () => {
                             />
                           </CardContent>
                         </Card>
-                      </div>
-                    )}
-                  </AccordionContent>
-                </AccordionItem>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
-            </Accordion>
+            </div>
 
             <div className="flex gap-2">
               <Button 
