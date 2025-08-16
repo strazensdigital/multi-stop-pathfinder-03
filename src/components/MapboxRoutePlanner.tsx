@@ -401,9 +401,13 @@ const MapboxRoutePlanner: React.FC = () => {
         let label = (labelsByStableIndex[orig] ?? '').trim();
 
         // Only reverse geocode when the typed value is coordinates or empty
-        if (!label || isCoordInput(label)) {
+        if (!label) {
           const rev = await reverseGeocode(lat, lng, getToken());
           label = rev || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        } else if (isCoordInput(label)) {
+          // If user typed coordinates, replace with reverse geocoded address
+          const rev = await reverseGeocode(lat, lng, getToken());
+          label = rev || label; // keep original coordinates if reverse geocoding fails
         }
 
         const stop: OrderedStop = {
@@ -742,14 +746,11 @@ const MapboxRoutePlanner: React.FC = () => {
                           <CardContent className="p-4">
                              <div className="flex items-center justify-between mb-3">
                                <h4 className="font-semibold">Copy / Export</h4>
-                               <div className="flex flex-wrap gap-2">
-                                 <Button size="sm" variant="outline" onClick={() => downloadTxt(arrow, 'route.txt')}>
-                                   Download .txt
-                                 </Button>
-                                 <Button size="sm" variant="default" onClick={() => window.open(buildGoogleMapsUrl(ordered!), '_blank')}>
-                                   Google Maps
-                                 </Button>
-                               </div>
+                                <div className="flex flex-wrap gap-2">
+                                  <Button size="sm" variant="default" onClick={() => window.open(buildGoogleMapsUrl(ordered!), '_blank')}>
+                                    Google Maps
+                                  </Button>
+                                </div>
                              </div>
                             <textarea 
                               readOnly 
