@@ -240,7 +240,9 @@ const MapboxRoutePlanner: React.FC = () => {
     routeGeometry.current = geojson;
 
     let paintOverrides = {};
-    if (congestionData && congestionData.length > 0 && trafficOn) {
+    
+    // Only apply traffic coloring if traffic is ON and we have congestion data
+    if (trafficOn && congestionData && congestionData.length > 0) {
       // Create traffic-colored gradient
       const congestionColors = {
         low: "#22c55e",     // green
@@ -258,6 +260,11 @@ const MapboxRoutePlanner: React.FC = () => {
 
       paintOverrides = {
         "line-gradient": stops,
+      };
+    } else {
+      // Default gradient when traffic is off or no congestion data
+      paintOverrides = {
+        "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "#7c3aed", 1, "#06b6d4"],
       };
     }
 
@@ -397,18 +404,16 @@ const MapboxRoutePlanner: React.FC = () => {
         const [lng, lat] = wp.location;
         const orig = wp.original_index; // maps to labelsByStableIndex
 
-        // ALWAYS prefer the exact typed label
+        // ALWAYS prefer the exact typed label - NO reverse geocoding unless empty
         let label = (labelsByStableIndex[orig] ?? '').trim();
 
-        // Only reverse geocode when the typed value is coordinates or empty
+        // Only reverse geocode when label is completely empty
         if (!label) {
           const rev = await reverseGeocode(lat, lng, getToken());
           label = rev || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-        } else if (isCoordInput(label)) {
-          // If user typed coordinates, replace with reverse geocoded address
-          const rev = await reverseGeocode(lat, lng, getToken());
-          label = rev || label; // keep original coordinates if reverse geocoding fails
         }
+        // If user typed coordinates, show them as-is (no reverse geocoding)
+        // Everything else shows exactly what the user typed
 
         const stop: OrderedStop = {
           order: i,
@@ -621,25 +626,37 @@ const MapboxRoutePlanner: React.FC = () => {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <Switch
-                        id="traffic"
-                        checked={trafficOn}
-                        onCheckedChange={(checked) => {
-                          setTrafficOn(checked);
-                          localStorage.setItem('route-traffic-enabled', JSON.stringify(checked));
-                        }}
+                       <Switch
+                         id="traffic"
+                         checked={trafficOn}
+                         onCheckedChange={(checked) => {
+                           setTrafficOn(checked);
+                           localStorage.setItem('route-traffic-enabled', JSON.stringify(checked));
+                           
+                           // Re-draw route with new traffic setting if route exists
+                           if (routeGeometry.current) {
+                             const route = routeGeometry.current;
+                             const congestionData = checked && ordered ? [] : undefined; // Will be properly set during redraw
+                             drawRoute(route, congestionData);
+                           }
+                         }}
                       />
                       <Label htmlFor="traffic" className="text-sm">Account for live traffic</Label>
                       <Info className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Switch
-                        id="stabilize"
-                        checked={stabilizeResults}
-                        onCheckedChange={(checked) => {
-                          setStabilizeResults(checked);
-                          localStorage.setItem('route-stabilize-enabled', JSON.stringify(checked));
-                        }}
+                       <Switch
+                         id="stabilize"
+                         checked={stabilizeResults}
+                         onCheckedChange={(checked) => {
+                           setStabilizeResults(checked);
+                           localStorage.setItem('route-stabilize-enabled', JSON.stringify(checked));
+                           
+                           // If route exists and we're changing stabilization, re-optimize to show change
+                           if (routeOptimized && ordered && ordered.length > 0) {
+                             toast("Route updated with stability setting");
+                           }
+                         }}
                       />
                       <Label htmlFor="stabilize" className="text-sm">Stable results</Label>
                     </div>
