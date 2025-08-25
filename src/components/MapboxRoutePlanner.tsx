@@ -908,7 +908,7 @@ const MapboxRoutePlanner: React.FC = () => {
                                 </span>
                                 <div>
                                   <div className="font-medium">{stop.label}</div>
-                                  <div className="text-xs text-muted-foreground">{stop.role} · {stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}</div>
+                                  <div className="hidden lg:block text-xs text-muted-foreground">{stop.role} · {stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}</div>
                                 </div>
                               </div>
                               {stop.toNext && (
@@ -1024,6 +1024,23 @@ const MapboxRoutePlanner: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile sticky bottom bar */}
+      {ordered && (
+        <div className="fixed inset-x-0 bottom-0 z-40 bg-background/95 backdrop-blur border-t p-3 lg:hidden">
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={() => window.open(buildGoogleMapsUrl(ordered), '_blank')}>
+              Google Maps
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => downloadTxt(arrow, 'route.txt')}>
+              Download .txt
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            We send your typed addresses; Google may adjust pins slightly to the nearest entrance.
+          </p>
+        </div>
+      )}
+
       {/* Traffic Dialog */}
       <AlertDialog open={showTrafficDialog} onOpenChange={setShowTrafficDialog}>
         <AlertDialogContent>
@@ -1056,18 +1073,18 @@ function downloadTxt(content: string, filename: string) {
 }
 
 function buildGoogleMapsUrl(stops: OrderedStop[]) {
-  if (!stops.length) return "";
-  const origin = `${stops[0].lat},${stops[0].lng}`;
-  const destination = `${stops[stops.length - 1].lat},${stops[stops.length - 1].lng}`;
-  const waypoints = stops.slice(1, -1).map(s => `${s.lat},${s.lng}`).join("|");
-  const params = new URLSearchParams({
-    api: "1",
-    origin,
-    destination,
-    travelmode: "driving",
-    ...(waypoints ? { waypoints } : {})
-  });
-  return `https://www.google.com/maps/dir/?${params.toString()}`;
+  if (!stops?.length) return '';
+  const enc = (x: string) => encodeURIComponent(x);
+  const adr = (s: OrderedStop) =>
+    s.label && !isCoordInput(s.label) ? enc(s.label) : `${s.lat},${s.lng}`;
+
+  const origin = adr(stops[0]);
+  const destination = adr(stops[stops.length - 1]);
+  const waypoints = stops.slice(1, -1).map(adr).join('|');
+
+  const p = new URLSearchParams({ api: '1', origin, destination, travelmode: 'driving' });
+  if (waypoints) p.set('waypoints', waypoints);
+  return `https://www.google.com/maps/dir/?${p.toString()}`;
 }
 
 
