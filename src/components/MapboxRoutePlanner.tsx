@@ -20,6 +20,12 @@ const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1Ijoia3VsbHVtdXV1IiwiYSI6ImNtZTZqb2d0ODEzajY
 
 const getToken = () => localStorage.getItem("MAPBOX_TOKEN") || DEFAULT_MAPBOX_TOKEN;
 
+// Map style constants
+const LIGHT = "mapbox://styles/mapbox/light-v11";
+const DARK = "mapbox://styles/mapbox/dark-v11";
+const SAT = "mapbox://styles/mapbox/satellite-streets-v12";
+const ALLOWED_STYLES = new Set([LIGHT, DARK, SAT]);
+
 mapboxgl.accessToken = getToken();
 
 type LngLat = [number, number];
@@ -165,7 +171,10 @@ const MapboxRoutePlanner: React.FC = () => {
     const saved = localStorage.getItem('route-stabilize-enabled');
     return saved ? JSON.parse(saved) : true;
   });
-  const [currentTheme, setCurrentTheme] = useState('mapbox://styles/mapbox/light-v11');
+  const [currentTheme, setCurrentTheme] = useState<string>(() => {
+    const saved = localStorage.getItem("MAP_STYLE");
+    return ALLOWED_STYLES.has(saved || "") ? saved! : SAT;   // default Satellite
+  });
   const [showTrafficDialog, setShowTrafficDialog] = useState(false);
   const [showNewRouteDialog, setShowNewRouteDialog] = useState(false);
   const [routeOptimized, setRouteOptimized] = useState(false);
@@ -246,6 +255,11 @@ const MapboxRoutePlanner: React.FC = () => {
       mapRef.current?.remove();
       mapRef.current = null;
     };
+  }, [currentTheme]);
+
+  // Save theme to localStorage when changed
+  useEffect(() => {
+    localStorage.setItem("MAP_STYLE", currentTheme);
   }, [currentTheme]);
 
   const routeGeometry = useRef<any>(null);
@@ -1010,13 +1024,9 @@ const MapboxRoutePlanner: React.FC = () => {
                 <SelectValue placeholder="Map Style" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="mapbox://styles/mapbox/light-v11">Light</SelectItem>
-                <SelectItem value="mapbox://styles/mapbox/dark-v11">Dark</SelectItem>
-                <SelectItem value="mapbox://styles/mapbox/traffic-day-v2">Traffic (Day)</SelectItem>
-                <SelectItem value="mapbox://styles/mapbox/traffic-night-v2">Traffic (Night)</SelectItem>
-                <SelectItem value="mapbox://styles/mapbox/navigation-day-v1">Navigation Day</SelectItem>
-                <SelectItem value="mapbox://styles/mapbox/navigation-night-v1">Navigation Night</SelectItem>
-                <SelectItem value="mapbox://styles/mapbox/satellite-streets-v12">Satellite</SelectItem>
+                <SelectItem value={LIGHT}>Light</SelectItem>
+                <SelectItem value={DARK}>Dark</SelectItem>
+                <SelectItem value={SAT}>Satellite</SelectItem>
               </SelectContent>
             </Select>
           </div>
