@@ -49,6 +49,91 @@ const geocode = async (query: string): Promise<GeocodeResult | null> => {
   return { place_name: feat.place_name, center: feat.center as LngLat };
 };
 
+// Fetch autocomplete suggestions
+const fetchSuggestions = async (query: string, proximity?: LngLat): Promise<GeocodeResult[]> => {
+  if (!query.trim()) return [];
+  const encoded = encodeURIComponent(query.trim());
+  const proximityParam = proximity ? `&proximity=${proximity[0]},${proximity[1]}` : '';
+  const res = await fetch(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?autocomplete=true&limit=5&types=address,poi,place,locality,neighborhood${proximityParam}&access_token=${getToken()}`
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data?.features || []).map((feat: any) => ({
+    place_name: feat.place_name,
+    center: feat.center as LngLat
+  }));
+};
+
+// Debounce function
+const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): T => {
+  let timeoutId: NodeJS.Timeout;
+  return ((...args: Parameters<T>) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func(...args), wait);
+  }) as T;
+};
+
+// Build traffic paint from ratio
+const buildTrafficPaintFromRatio = (liveTrip: any, typicalTrip: any) => {
+  if (!liveTrip?.legs || !typicalTrip?.legs) {
+    // Fallback to congestion-based coloring if available
+    if (liveTrip?.legs) {
+      let congestionData: string[] = [];
+      liveTrip.legs.forEach((leg: any) => {
+        if (leg.annotation?.congestion) {
+          congestionData = congestionData.concat(leg.annotation.congestion);
+        }
+      });
+      
+      if (congestionData.length > 0) {
+        const congestionColors = {
+          low: "#22c55e",     // green
+          moderate: "#eab308", // yellow
+          heavy: "#f97316",   // orange
+          severe: "#ef4444"   // red
+        };
+        
+        const stops: any[] = ["interpolate", ["linear"], ["line-progress"]];
+        congestionData.forEach((level, i) => {
+          const progress = congestionData.length === 1 ? 0 : i / (congestionData.length - 1);
+          const color = congestionColors[level as keyof typeof congestionColors] || congestionColors.moderate;
+          stops.push(progress, color);
+        });
+        
+        return { "line-gradient": stops };
+      }
+    }
+    return undefined;
+  }
+
+  const liveLegs = liveTrip.legs;
+  const typicalLegs = typicalTrip.legs;
+  const ratios: number[] = [];
+
+  for (let i = 0; i < liveLegs.length && i < typicalLegs.length; i++) {
+    const liveDuration = liveLegs[i].duration || 0;
+    const typicalDuration = typicalLegs[i].duration || 0;
+    const ratio = typicalDuration > 0 ? liveDuration / typicalDuration : 1;
+    ratios.push(ratio);
+  }
+
+  if (ratios.length === 0) return undefined;
+
+  const stops: any[] = ["interpolate", ["linear"], ["line-progress"]];
+  ratios.forEach((ratio, i) => {
+    const progress = ratios.length === 1 ? 0 : i / (ratios.length - 1);
+    let color;
+    if (ratio <= 1.1) color = "#22c55e";      // green - good traffic
+    else if (ratio <= 1.3) color = "#eab308"; // yellow - moderate traffic
+    else if (ratio <= 1.6) color = "#f97316"; // orange - heavy traffic
+    else color = "#ef4444";                    // red - severe traffic
+    stops.push(progress, color);
+  });
+
+  return { "line-gradient": stops };
+};
+
 const getCurrentPosition = (): Promise<GeolocationPosition> =>
   new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -86,8 +171,31 @@ const MapboxRoutePlanner: React.FC = () => {
   const [routeOptimized, setRouteOptimized] = useState(false);
   const [showDestinations, setShowDestinations] = useState(true);
   const [showRouteOrder, setShowRouteOrder] = useState(false);
+  
+  // Autocomplete states
+  const [suggestions, setSuggestions] = useState<{[key: string]: GeocodeResult[]}>({});
+  const [showSuggestions, setShowSuggestions] = useState<{[key: string]: boolean}>({});
+  const [recentAddresses, setRecentAddresses] = useState<string[]>(() => {
+    const saved = localStorage.getItem('recent_addresses');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const canAddDestination = destinations.length < 9; // more than 1 and less than 10 => max 9 stops
+
+  // Debounced autocomplete
+  const debouncedFetchSuggestions = useMemo(
+    () => debounce(async (query: string, key: string) => {
+      if (!query.trim()) {
+        setSuggestions(prev => ({ ...prev, [key]: [] }));
+        return;
+      }
+      
+      const startCenter = mapRef.current ? [mapRef.current.getCenter().lng, mapRef.current.getCenter().lat] as LngLat : undefined;
+      const results = await fetchSuggestions(query, startCenter);
+      setSuggestions(prev => ({ ...prev, [key]: results }));
+    }, 300),
+    []
+  );
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -233,40 +341,13 @@ const MapboxRoutePlanner: React.FC = () => {
     }
   }, []);
 
-  const drawRoute = useCallback((geojson: Feature<LineString>, congestionData?: string[]) => {
+  const drawRoute = useCallback((geojson: Feature<LineString>, liveTrip?: any, typicalTrip?: any) => {
     const map = mapRef.current;
     if (!map) return;
 
     routeGeometry.current = geojson;
 
-    let paintOverrides = {};
-    
-    // Only apply traffic coloring if traffic is ON and we have congestion data
-    if (trafficOn && congestionData && congestionData.length > 0) {
-      // Create traffic-colored gradient
-      const congestionColors = {
-        low: "#22c55e",     // green
-        moderate: "#eab308", // yellow
-        heavy: "#f97316",   // orange
-        severe: "#ef4444"   // red
-      };
-      
-      const stops: any[] = ["interpolate", ["linear"], ["line-progress"]];
-      congestionData.forEach((level, i) => {
-        const progress = congestionData.length === 1 ? 0 : i / (congestionData.length - 1);
-        const color = congestionColors[level as keyof typeof congestionColors] || congestionColors.moderate;
-        stops.push(progress, color);
-      });
-
-      paintOverrides = {
-        "line-gradient": stops,
-      };
-    } else {
-      // Default gradient when traffic is off or no congestion data
-      paintOverrides = {
-        "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "#7c3aed", 1, "#06b6d4"],
-      };
-    }
+    const paintOverrides = trafficOn ? buildTrafficPaintFromRatio(liveTrip, typicalTrip) : undefined;
 
     const ensureLayer = () => {
       addOrUpdateRoute(geojson, paintOverrides);
@@ -389,12 +470,11 @@ const MapboxRoutePlanner: React.FC = () => {
         });
       }
 
-      drawRoute({ type: "Feature", geometry: route, properties: {} }, congestionData);
+      drawRoute({ type: "Feature", geometry: route, properties: {} }, liveTrip, typicalTrip);
 
-      // Build ordered stops with correct labels using original_index
-      type OptWp = { waypoint_index: number; original_index: number; location: LngLat; name: string };
-      const waypoints = (liveData?.waypoints || []) as OptWp[];
-      const orderedWaypoints = waypoints.slice().sort((a, b) => a.waypoint_index - b.waypoint_index);
+      // Build ordered stops with correct labels using origIndex pattern
+      const rawWaypoints = (liveData?.waypoints || []).map((wp: any, idx: number) => ({...wp, origIndex: idx}));
+      const orderedWaypoints = rawWaypoints.slice().sort((a, b) => a.waypoint_index - b.waypoint_index);
       const legs = liveTrip.legs || [];
 
       const orderedStops: OrderedStop[] = [];
@@ -402,18 +482,13 @@ const MapboxRoutePlanner: React.FC = () => {
       for (let i = 0; i < orderedWaypoints.length; i++) {
         const wp = orderedWaypoints[i];
         const [lng, lat] = wp.location;
-        const orig = wp.original_index; // maps to labelsByStableIndex
-
-        // ALWAYS prefer the exact typed label - NO reverse geocoding unless empty
+        const orig = orderedWaypoints[i].origIndex;
+        
         let label = (labelsByStableIndex[orig] ?? '').trim();
-
-        // Only reverse geocode when label is completely empty
-        if (!label) {
+        if (!label || isCoordInput(label)) {
           const rev = await reverseGeocode(lat, lng, getToken());
           label = rev || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         }
-        // If user typed coordinates, show them as-is (no reverse geocoding)
-        // Everything else shows exactly what the user typed
 
         const stop: OrderedStop = {
           order: i,
@@ -493,6 +568,64 @@ const MapboxRoutePlanner: React.FC = () => {
 
   const removeDestination = (index: number) => {
     setDestinations((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const saveToRecentAddresses = (address: string) => {
+    if (!address.trim()) return;
+    const updated = [address, ...recentAddresses.filter(a => a !== address)].slice(0, 10);
+    setRecentAddresses(updated);
+    localStorage.setItem('recent_addresses', JSON.stringify(updated));
+  };
+
+  const handleInputChange = (value: string, key: string, setter: (value: string) => void) => {
+    setter(value);
+    debouncedFetchSuggestions(value, key);
+    if (value.trim()) {
+      setShowSuggestions(prev => ({ ...prev, [key]: true }));
+    }
+  };
+
+  const handleSuggestionSelect = (suggestion: GeocodeResult, key: string, setter: (value: string) => void) => {
+    setter(suggestion.place_name);
+    saveToRecentAddresses(suggestion.place_name);
+    setShowSuggestions(prev => ({ ...prev, [key]: false }));
+    setSuggestions(prev => ({ ...prev, [key]: [] }));
+  };
+
+  const handleInputFocus = (key: string, currentValue: string) => {
+    if (!currentValue.trim() && recentAddresses.length > 0) {
+      setSuggestions(prev => ({ 
+        ...prev, 
+        [key]: recentAddresses.map(addr => ({ place_name: addr, center: [0, 0] as LngLat }))
+      }));
+      setShowSuggestions(prev => ({ ...prev, [key]: true }));
+    }
+  };
+
+  const handleRowClick = (stop: OrderedStop) => {
+    if (!mapRef.current) return;
+    
+    // Pan and zoom to marker
+    mapRef.current.flyTo({
+      center: [stop.lng, stop.lat],
+      zoom: 14,
+      duration: 1000
+    });
+    
+    // Find and pulse the marker
+    const marker = markersRef.current.find((m, i) => {
+      const lngLat = m.getLngLat();
+      return Math.abs(lngLat.lng - stop.lng) < 0.0001 && Math.abs(lngLat.lat - stop.lat) < 0.0001;
+    });
+    
+    if (marker) {
+      const el = marker.getElement();
+      el.style.transform = 'scale(1.3)';
+      el.style.transition = 'transform 0.3s ease';
+      setTimeout(() => {
+        el.style.transform = 'scale(1)';
+      }, 300);
+    }
   };
 
   const setMyLocationAsStart = async () => {
@@ -575,16 +708,34 @@ const MapboxRoutePlanner: React.FC = () => {
                 
                 {(!routeOptimized || showDestinations) && (
                   <div className="space-y-4 rounded-lg border p-4">
-                    <div className="space-y-2">
+                  <div className="space-y-2">
                     <Label htmlFor="start">Starting point</Label>
                     <div className="flex gap-2">
-                      <Input
-                        id="start"
-                        placeholder="Address or 'lat, lng'"
-                        value={start}
-                        onChange={(e) => setStart(e.target.value)}
-                      />
-                      <Button type="button" variant="outline" onClick={setMyLocationAsStart}>
+                      <div className="relative flex-1">
+                        <Input
+                          id="start"
+                          placeholder="Address or 'lat, lng'"
+                          value={start}
+                          onChange={(e) => handleInputChange(e.target.value, 'start', setStart)}
+                          onFocus={() => handleInputFocus('start', start)}
+                          onBlur={() => setTimeout(() => setShowSuggestions(prev => ({ ...prev, start: false })), 150)}
+                          className="min-h-[44px]"
+                        />
+                        {showSuggestions.start && suggestions.start && suggestions.start.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
+                            {suggestions.start.map((suggestion, i) => (
+                              <button
+                                key={i}
+                                className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-b-0"
+                                onClick={() => handleSuggestionSelect(suggestion, 'start', setStart)}
+                              >
+                                {suggestion.place_name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <Button type="button" variant="outline" onClick={setMyLocationAsStart} className="min-h-[44px]">
                         Use my location
                       </Button>
                     </div>
@@ -602,20 +753,51 @@ const MapboxRoutePlanner: React.FC = () => {
                       )}
                     </div>
                     <div className="space-y-2">
-                      {destinations.map((d, i) => (
+                      {destinations.map((destination, i) => (
                         <div key={i} className="flex gap-2">
-                          <Input
-                            placeholder={`Destination ${i + 1}`}
-                            value={d}
-                            onChange={(e) =>
-                              setDestinations((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))
-                            }
-                          />
+                          <div className="relative flex-1">
+                            <Input
+                              placeholder={`Destination ${i + 1}...`}
+                              value={destination}
+                              onChange={(e) => {
+                                const newDests = [...destinations];
+                                newDests[i] = e.target.value;
+                                setDestinations(newDests);
+                                handleInputChange(e.target.value, `dest-${i}`, (value) => {
+                                  const newDests = [...destinations];
+                                  newDests[i] = value;
+                                  setDestinations(newDests);
+                                });
+                              }}
+                              onFocus={() => handleInputFocus(`dest-${i}`, destination)}
+                              onBlur={() => setTimeout(() => setShowSuggestions(prev => ({ ...prev, [`dest-${i}`]: false })), 150)}
+                              className="min-h-[44px]"
+                            />
+                            {showSuggestions[`dest-${i}`] && suggestions[`dest-${i}`] && suggestions[`dest-${i}`].length > 0 && (
+                              <div className="absolute top-full left-0 right-0 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
+                                {suggestions[`dest-${i}`].map((suggestion, j) => (
+                                  <button
+                                    key={j}
+                                    className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-b-0"
+                                    onClick={() => {
+                                      const newDests = [...destinations];
+                                      newDests[i] = suggestion.place_name;
+                                      setDestinations(newDests);
+                                      handleSuggestionSelect(suggestion, `dest-${i}`, () => {});
+                                    }}
+                                  >
+                                    {suggestion.place_name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                           <Button
                             type="button"
                             variant="outline"
                             onClick={() => removeDestination(i)}
                             disabled={destinations.length <= 1}
+                            className="min-h-[44px]"
                           >
                             Remove
                           </Button>
@@ -714,27 +896,31 @@ const MapboxRoutePlanner: React.FC = () => {
                         </div>
 
                         <ul className="divide-y">
-                          {ordered.map((s, idx) => {
-                            const next = s.toNext;
-                            const dist = next ? (units === 'metric' ? `${(toKm(next.distance_m)).toFixed(2)} km` : `${(toMiles(next.distance_m)).toFixed(2)} mi`) : '';
-                            const dur = next ? `${(toMinutes(next.duration_s)).toFixed(0)} min` : '';
-                            return (
-                              <li key={idx} className="py-2 flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-3">
-                                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                                    {s.order === 0 ? 'S' : s.order}
-                                  </span>
-                                  <div>
-                                    <div className="font-medium">{s.label}</div>
-                                    <div className="text-xs text-muted-foreground">{s.role} · {s.lat.toFixed(5)}, {s.lng.toFixed(5)}</div>
-                                  </div>
+                          {ordered.map((stop, i) => (
+                            <li 
+                              key={i} 
+                              className="py-2 flex items-center justify-between gap-3 cursor-pointer hover:bg-muted/50 rounded-md px-2 min-h-[44px] transition-colors"
+                              onClick={() => handleRowClick(stop)}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                                  {stop.order === 0 ? 'S' : stop.order}
+                                </span>
+                                <div>
+                                  <div className="font-medium">{stop.label}</div>
+                                  <div className="text-xs text-muted-foreground">{stop.role} · {stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}</div>
                                 </div>
-                                {next && (
-                                  <span className="text-xs px-2 py-1 rounded bg-muted">{dist} · {dur}</span>
-                                )}
-                              </li>
-                            );
-                          })}
+                              </div>
+                              {stop.toNext && (
+                                <span className="text-xs px-2 py-1 rounded bg-muted">
+                                  {units === 'metric' 
+                                    ? `${toKm(stop.toNext.distance_m).toFixed(2)} km`
+                                    : `${toMiles(stop.toNext.distance_m).toFixed(2)} mi`
+                                  } · {toMinutes(stop.toNext.duration_s).toFixed(0)} min
+                                </span>
+                              )}
+                            </li>
+                          ))}
                         </ul>
 
                         {trafficOn && (
@@ -789,8 +975,7 @@ const MapboxRoutePlanner: React.FC = () => {
               <Button 
                 onClick={optimizeRoute} 
                 disabled={loading} 
-                variant="hero" 
-                className="flex-1"
+                className="flex-1 min-h-[44px] md:relative md:bottom-auto fixed bottom-4 left-4 right-4 z-50 md:z-auto"
               >
                 {loading ? "Optimizing..." : routeOptimized ? "Recalculate route" : "Find shortest route"}
               </Button>
