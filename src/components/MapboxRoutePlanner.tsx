@@ -690,7 +690,7 @@ const MapboxRoutePlanner: React.FC = () => {
   };
 
   return (
-    <section className="w-full">
+    <section className={`w-full ${ordered ? 'pb-[calc(88px+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}>
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <Card className="lg:col-span-2 shadow-[var(--shadow-elegant)]">
           <CardHeader>
@@ -959,24 +959,22 @@ const MapboxRoutePlanner: React.FC = () => {
                           </div>
                         )}
 
-                        <Card className="shadow-[var(--shadow-elegant)]">
-                          <CardContent className="p-4">
-                             <div className="flex items-center justify-between mb-3">
-                               <h4 className="font-semibold">Copy / Export</h4>
-                                <div className="flex flex-wrap gap-2">
-                                  <Button size="sm" variant="default" onClick={() => window.open(buildGoogleMapsUrl(ordered!), '_blank')}>
-                                    Google Maps
-                                  </Button>
-                                </div>
-                             </div>
-                            <textarea 
-                              readOnly 
-                              className="w-full rounded border p-2 text-sm bg-background resize-none" 
-                              rows={2} 
-                              value={arrow} 
-                            />
-                          </CardContent>
-                        </Card>
+                         <Card className="shadow-[var(--shadow-elegant)]">
+                           <CardContent className="p-4">
+                             <Button className="w-full" onClick={() => window.open(buildGoogleMapsUrl(ordered!), '_blank')}>
+                               Google Maps
+                             </Button>
+                             <p className="mt-2 text-xs text-muted-foreground">
+                               We send your typed addresses; Google may adjust pins slightly to the nearest entrance.
+                             </p>
+                             <textarea 
+                               readOnly 
+                               className="w-full rounded border p-2 text-sm bg-background resize-none mt-3" 
+                               rows={2} 
+                               value={arrow} 
+                             />
+                           </CardContent>
+                         </Card>
                         </div>
                       )}
                     </div>
@@ -989,9 +987,9 @@ const MapboxRoutePlanner: React.FC = () => {
               <Button 
                 onClick={optimizeRoute} 
                 disabled={loading} 
-                className="flex-1 min-h-[44px] md:relative md:bottom-auto fixed bottom-4 left-4 right-4 z-50 md:z-auto"
-              >
-                {loading ? "Optimizing..." : routeOptimized ? "Recalculate route" : "Find shortest route"}
+                 className="flex-1 min-h-[44px] hidden lg:block"
+               >
+                 {loading ? "Optimizing..." : routeOptimized ? "Recalculate route" : `Find shortest route${destinations.filter(d => d.trim()).length >= 2 ? ` (${destinations.filter(d => d.trim()).length + 1} stops)` : ''}`}
               </Button>
               {routeOptimized && (
                 <AlertDialog open={showNewRouteDialog} onOpenChange={setShowNewRouteDialog}>
@@ -1035,21 +1033,32 @@ const MapboxRoutePlanner: React.FC = () => {
       </div>
 
       {/* Mobile sticky bottom bar */}
-      {ordered && (
+      {(routeOptimized || (!routeOptimized && start.trim() && destinations.filter(d => d.trim()).length >= 2)) && (
         <div className="fixed inset-x-0 bottom-0 z-40 bg-background/95 backdrop-blur border-t p-3 lg:hidden">
           <div className="flex gap-2">
-            <Button className="flex-1" onClick={() => window.open(buildGoogleMapsUrl(ordered), '_blank')}>
-              Google Maps
-            </Button>
-            <Button variant="outline" className="flex-1" onClick={() => downloadTxt(arrow, 'route.txt')}>
-              Download .txt
+            {routeOptimized && (
+              <Button variant="ghost" size="sm" onClick={() => setShowNewRouteDialog(true)} className="text-sm">
+                New route
+              </Button>
+            )}
+            <Button 
+              className="flex-1 min-h-[44px]" 
+              onClick={routeOptimized ? () => window.open(buildGoogleMapsUrl(ordered!), '_blank') : optimizeRoute}
+              disabled={loading}
+            >
+              {loading ? "Optimizing..." : routeOptimized ? "Google Maps" : `Find shortest route${destinations.filter(d => d.trim()).length >= 2 ? ` (${destinations.filter(d => d.trim()).length + 1} stops)` : ''}`}
             </Button>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            We send your typed addresses; Google may adjust pins slightly to the nearest entrance.
-          </p>
+          {routeOptimized && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              We send your typed addresses; Google may adjust pins slightly to the nearest entrance.
+            </p>
+          )}
         </div>
       )}
+
+      {/* Mobile spacer */}
+      {(routeOptimized || (!routeOptimized && start.trim() && destinations.filter(d => d.trim()).length >= 2)) && <div className="h-[calc(88px+env(safe-area-inset-bottom))] lg:hidden" />}
 
       {/* Traffic Dialog */}
       <AlertDialog open={showTrafficDialog} onOpenChange={setShowTrafficDialog}>
