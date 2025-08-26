@@ -154,6 +154,11 @@ const MapboxRoutePlanner: React.FC = () => {
   const routeSourceId = useRef<string>("optimized-route");
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const geocodeCache = useRef(new Map<string, {place_name: string, center: [number,number]}>());
+  
+  // Persistence refs for theme switching
+  const lastRouteGeojsonRef = useRef<Feature<LineString> | null>(null);
+  const lastPaintRef = useRef<any>(null);
+  const lastMarkerDataRef = useRef<{ coord: LngLat; color: string; label: string; role: string; index?: number }[]>([]);
 
   const [start, setStart] = useState<string>("");
   const [destinations, setDestinations] = useState<string[]>([""]);
@@ -231,19 +236,13 @@ const MapboxRoutePlanner: React.FC = () => {
       });
 
       // Re-add route and markers if they exist
-      if (lastRouteGeojson.current) {
-        addOrUpdateRoute(lastRouteGeojson.current, lastPaintOverrides.current);
+      if (lastRouteGeojsonRef.current) {
+        addOrUpdateRoute(lastRouteGeojsonRef.current, lastPaintRef.current);
       }
       
-      if (ordered && ordered.length > 0) {
-        // Re-add markers
-        updateMarkers(ordered.map((stop, i) => ({
-          coord: [stop.lng, stop.lat] as LngLat,
-          color: i === 0 ? "#7c3aed" : "#06b6d4",
-          label: stop.label,
-          role: stop.role,
-          index: stop.order,
-        })));
+      if (lastMarkerDataRef.current.length > 0) {
+        // Re-add markers from stored data
+        updateMarkers(lastMarkerDataRef.current);
       }
     };
 
@@ -276,7 +275,11 @@ const MapboxRoutePlanner: React.FC = () => {
     el.tabIndex = 0;
   }, []);
 
+  // Update markers function to store marker data
   const updateMarkers = useCallback((points: { coord: LngLat; color: string; label: string; role: string; index?: number }[]) => {
+    // Store marker data for persistence
+    lastMarkerDataRef.current = points;
+    
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
@@ -312,16 +315,13 @@ const MapboxRoutePlanner: React.FC = () => {
     mapRef.current.fitBounds(bounds, { padding: 60, duration: 600 });
   }, []);
 
-  const lastRouteGeojson = useRef<Feature<LineString> | null>(null);
-  const lastPaintOverrides = useRef<any>(null);
-
   const addOrUpdateRoute = useCallback((geojson: Feature<LineString>, paintOverrides?: any) => {
     const map = mapRef.current;
     if (!map) return;
 
     // Store for rehydration
-    lastRouteGeojson.current = geojson;
-    lastPaintOverrides.current = paintOverrides;
+    lastRouteGeojsonRef.current = geojson;
+    lastPaintRef.current = paintOverrides;
 
     const source = map.getSource(routeSourceId.current) as mapboxgl.GeoJSONSource | undefined;
     if (source) {
@@ -689,348 +689,310 @@ const MapboxRoutePlanner: React.FC = () => {
     setTimeout(() => optimizeRoute(), 100);
   };
 
+  // Helper function to get short label
+  const shortLabel = (address: string) => {
+    if (!address) return '';
+    const parts = address.split(',');
+    return parts[0].trim() || address;
+  };
+
+  // Update theme change handler to use persistence refs
+  const handleThemeChange = (newTheme: string) => {
+    setCurrentTheme(newTheme);
+    
+    // The map will automatically re-add route and markers via the useEffect
+    // that listens to currentTheme changes and calls handleStyleLoad
+  };
+
   return (
     <section className={`w-full ${ordered ? 'pb-[calc(88px+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}>
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <Card className="lg:col-span-2 shadow-[var(--shadow-elegant)]">
-          <CardHeader>
-            <CardTitle>Plan Your Route</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-6">
-              {/* Destinations Section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">
-                    {routeOptimized ? "Edit Destinations" : "Destinations"}
-                  </h3>
-                  {routeOptimized && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setShowDestinations(!showDestinations);
-                        if (!showDestinations) {
-                          setShowRouteOrder(false);
-                        }
-                      }}
-                    >
-                      {showDestinations ? "Collapse" : "Edit list"}
-                    </Button>
-                  )}
-                </div>
-                
-                {(!routeOptimized || showDestinations) && (
-                  <div className="space-y-4 rounded-lg border p-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="start">Starting point</Label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Input
-                          id="start"
-                          placeholder="Address or 'lat, lng'"
-                          value={start}
-                          onChange={(e) => handleInputChange(e.target.value, 'start', setStart)}
-                          onFocus={() => handleInputFocus('start', start)}
-                          onBlur={() => setTimeout(() => setShowSuggestions(prev => ({ ...prev, start: false })), 150)}
-                          className="min-h-[44px]"
-                        />
-                        {showSuggestions.start && suggestions.start && suggestions.start.length > 0 && (
-                          <div className="absolute top-full left-0 right-0 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
-                            {suggestions.start.map((suggestion, i) => (
-                              <button
-                                key={i}
-                                className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-b-0"
-                                onClick={() => handleSuggestionSelect(suggestion, 'start', setStart)}
-                              >
-                                {suggestion.place_name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <Button type="button" variant="outline" onClick={setMyLocationAsStart} className="min-h-[44px]">
-                        Use my location
-                      </Button>
-                    </div>
-                  </div>
+        <div className="lg:col-span-2 space-y-4">
+          {/* Header */}
+          <div className="text-center lg:text-left">
+            <h1 className="text-2xl font-bold">ZipRoute</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Enter a start and 2–9 stops. We'll order and open in Google Maps.
+            </p>
+          </div>
 
-                  <Separator />
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label>Destinations (2–9)</Label>
-                      {canAddDestination && (
-                        <Button type="button" variant="secondary" onClick={addDestination}>
-                          Add destination
-                        </Button>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      {destinations.map((destination, i) => (
-                        <div key={i} className="flex gap-2">
-                          <div className="relative flex-1">
-                            <Input
-                              placeholder={`Destination ${i + 1}...`}
-                              value={destination}
-                              onChange={(e) => {
-                                const newDests = [...destinations];
-                                newDests[i] = e.target.value;
-                                setDestinations(newDests);
-                                handleInputChange(e.target.value, `dest-${i}`, (value) => {
-                                  const newDests = [...destinations];
-                                  newDests[i] = value;
-                                  setDestinations(newDests);
-                                });
-                              }}
-                              onFocus={() => handleInputFocus(`dest-${i}`, destination)}
-                              onBlur={() => setTimeout(() => setShowSuggestions(prev => ({ ...prev, [`dest-${i}`]: false })), 150)}
-                              className="min-h-[44px]"
-                            />
-                            {showSuggestions[`dest-${i}`] && suggestions[`dest-${i}`] && suggestions[`dest-${i}`].length > 0 && (
-                              <div className="absolute top-full left-0 right-0 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
-                                {suggestions[`dest-${i}`].map((suggestion, j) => (
-                                  <button
-                                    key={j}
-                                    className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-b-0"
-                                    onClick={() => {
-                                      const newDests = [...destinations];
-                                      newDests[i] = suggestion.place_name;
-                                      setDestinations(newDests);
-                                      handleSuggestionSelect(suggestion, `dest-${i}`, () => {});
-                                    }}
-                                  >
-                                    {suggestion.place_name}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => removeDestination(i)}
-                            disabled={destinations.length <= 1}
-                            className="min-h-[44px]"
-                          >
-                            Remove
-                          </Button>
-                        </div>
+          {/* Card A - Start */}
+          <Card className="shadow-[var(--shadow-elegant)]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Start</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    placeholder="Address or 'lat, lng'"
+                    value={start}
+                    onChange={(e) => handleInputChange(e.target.value, 'start', setStart)}
+                    onFocus={() => handleInputFocus('start', start)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(prev => ({ ...prev, start: false })), 150)}
+                    className="min-h-[44px]"
+                  />
+                  {showSuggestions.start && suggestions.start && suggestions.start.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
+                      {suggestions.start.map((suggestion, i) => (
+                        <button
+                          key={i}
+                          className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-b-0"
+                          onClick={() => handleSuggestionSelect(suggestion, 'start', setStart)}
+                        >
+                          {suggestion.place_name}
+                        </button>
                       ))}
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                       <Switch
-                         id="traffic"
-                         checked={trafficOn}
-                         onCheckedChange={(checked) => {
-                           setTrafficOn(checked);
-                           localStorage.setItem('route-traffic-enabled', JSON.stringify(checked));
-                           
-                           // Re-draw route with new traffic setting if route exists
-                           if (routeGeometry.current) {
-                             const route = routeGeometry.current;
-                             const congestionData = checked && ordered ? [] : undefined; // Will be properly set during redraw
-                             drawRoute(route, congestionData);
-                           }
-                         }}
-                      />
-                      <Label htmlFor="traffic" className="text-sm">Account for live traffic</Label>
-                      <Info className="h-3 w-3 text-muted-foreground" />
-                    </div>
-                    <div className="flex items-center space-x-2">
-                       <Switch
-                         id="stabilize"
-                         checked={stabilizeResults}
-                         onCheckedChange={(checked) => {
-                           setStabilizeResults(checked);
-                           localStorage.setItem('route-stabilize-enabled', JSON.stringify(checked));
-                           
-                           // If route exists and we're changing stabilization, re-optimize to show change
-                           if (routeOptimized && ordered && ordered.length > 0) {
-                             toast("Route updated with stability setting");
-                           }
-                         }}
-                      />
-                      <Label htmlFor="stabilize" className="text-sm">Stable results</Label>
-                    </div>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
+                <Button type="button" variant="outline" onClick={setMyLocationAsStart} className="min-h-[44px] text-xs px-3">
+                  Use my location
+                </Button>
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Route Order Section */}
-              {routeOptimized && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">Route Order</h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowRouteOrder(!showRouteOrder)}
-                    >
-                      {showRouteOrder ? "Collapse" : "Expand"}
-                    </Button>
-                  </div>
-                  
-                  {showRouteOrder && (
-                    <div className="rounded-lg border p-4">
-                      {ordered && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="font-semibold">Optimized Route</h3>
-                          <div className="flex items-center gap-3">
-                            {totalsLive && (
-                              <div className="text-sm text-muted-foreground">
-                                {trafficOn ? "Live: " : "Total: "}
-                                {units === 'metric'
-                                  ? `${(toKm(totalsLive.distance_m)).toFixed(1)} km`
-                                  : `${(toMiles(totalsLive.distance_m)).toFixed(1)} mi`
-                                }
-                                &nbsp;·&nbsp;{(toMinutes(totalsLive.duration_s)).toFixed(0)} min
-                                {totalsTypical && (
-                                  <>
-                                    <br />Typical: {(toMinutes(totalsTypical.duration_s)).toFixed(0)} min
-                                  </>
-                                )}
-                              </div>
-                            )}
-                            <Label className="text-sm">Units</Label>
-                            <select
-                              className="border rounded px-2 py-1 text-sm bg-background"
-                              value={units}
-                              onChange={e => setUnits(e.target.value as any)}
+          {/* Card B - Stops */}
+          <Card className="shadow-[var(--shadow-elegant)]">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Stops (2–9)</CardTitle>
+                <span className="text-sm text-muted-foreground">
+                  {destinations.filter(d => d.trim()).length}/9
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                {destinations.map((destination, i) => (
+                  <div key={i} className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        placeholder={`Stop ${i + 1}...`}
+                        value={destination}
+                        onChange={(e) => {
+                          const newDests = [...destinations];
+                          newDests[i] = e.target.value;
+                          setDestinations(newDests);
+                          handleInputChange(e.target.value, `dest-${i}`, (value) => {
+                            const newDests = [...destinations];
+                            newDests[i] = value;
+                            setDestinations(newDests);
+                          });
+                        }}
+                        onFocus={() => handleInputFocus(`dest-${i}`, destination)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(prev => ({ ...prev, [`dest-${i}`]: false })), 150)}
+                        className="min-h-[44px]"
+                      />
+                      {showSuggestions[`dest-${i}`] && suggestions[`dest-${i}`] && suggestions[`dest-${i}`].length > 0 && (
+                        <div className="absolute top-full left-0 right-0 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
+                          {suggestions[`dest-${i}`].map((suggestion, j) => (
+                            <button
+                              key={j}
+                              className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-b-0"
+                              onClick={() => {
+                                const newDests = [...destinations];
+                                newDests[i] = suggestion.place_name;
+                                setDestinations(newDests);
+                                handleSuggestionSelect(suggestion, `dest-${i}`, () => {});
+                              }}
                             >
-                              <option value="metric">km / min</option>
-                              <option value="imperial">mi / min</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <ul className="divide-y">
-                          {ordered.map((stop, i) => (
-                            <li 
-                              key={i} 
-                              className="py-2 flex items-center justify-between gap-3 cursor-pointer hover:bg-muted/50 rounded-md px-2 min-h-[44px] transition-colors"
-                              onClick={() => handleRowClick(stop)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                                  {stop.order === 0 ? 'S' : stop.order}
-                                </span>
-                                <div>
-                                  <div className="font-medium">{stop.label}</div>
-                                  <div className="hidden lg:block text-xs text-muted-foreground">{stop.role} · {stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}</div>
-                                </div>
-                              </div>
-                              {stop.toNext && (
-                                <span className="text-xs px-2 py-1 rounded bg-muted">
-                                  {units === 'metric' 
-                                    ? `${toKm(stop.toNext.distance_m).toFixed(2)} km`
-                                    : `${toMiles(stop.toNext.distance_m).toFixed(2)} mi`
-                                  } · {toMinutes(stop.toNext.duration_s).toFixed(0)} min
-                                </span>
-                              )}
-                            </li>
+                              {suggestion.place_name}
+                            </button>
                           ))}
-                        </ul>
-
-                        {trafficOn && (
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>Traffic Legend:</span>
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 bg-green-500 rounded"></div>
-                              <span>Low</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 bg-yellow-500 rounded"></div>
-                              <span>Moderate</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 bg-orange-500 rounded"></div>
-                              <span>Heavy</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 bg-red-500 rounded"></div>
-                              <span>Severe</span>
-                            </div>
-                          </div>
-                        )}
-
-                         <Card className="shadow-[var(--shadow-elegant)]">
-                           <CardContent className="p-4">
-                             <Button className="w-full" onClick={() => window.open(buildGoogleMapsUrl(ordered!), '_blank')}>
-                               Google Maps
-                             </Button>
-                             <p className="mt-2 text-xs text-muted-foreground">
-                               We send your typed addresses; Google may adjust pins slightly to the nearest entrance.
-                             </p>
-                             <textarea 
-                               readOnly 
-                               className="w-full rounded border p-2 text-sm bg-background resize-none mt-3" 
-                               rows={2} 
-                               value={arrow} 
-                             />
-                           </CardContent>
-                         </Card>
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
+                    {destinations.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeDestination(i)}
+                        className="min-h-[44px] px-3 text-xs"
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              
+              {canAddDestination && (
+                <Button type="button" variant="secondary" onClick={addDestination} className="w-full min-h-[44px]">
+                  Add stop
+                </Button>
               )}
-            </div>
+            </CardContent>
+          </Card>
 
-            <div className="flex gap-2">
-              <Button 
-                onClick={optimizeRoute} 
-                disabled={loading} 
-                 className="flex-1 min-h-[44px] hidden lg:block"
-               >
-                 {loading ? "Optimizing..." : routeOptimized ? "Recalculate route" : `Find shortest route${destinations.filter(d => d.trim()).length >= 2 ? ` (${destinations.filter(d => d.trim()).length + 1} stops)` : ''}`}
-              </Button>
-              {routeOptimized && (
-                <AlertDialog open={showNewRouteDialog} onOpenChange={setShowNewRouteDialog}>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost">New route</Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Start a new route?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Your current route data will be cleared and you'll start fresh.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleNewRoute}>Start New Route</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+          {/* Card C - Options */}
+          <Card className="shadow-[var(--shadow-elegant)]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Options</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="traffic" className="text-sm">Account for live traffic</Label>
+                <Switch
+                  id="traffic"
+                  checked={trafficOn}
+                  onCheckedChange={(checked) => {
+                    setTrafficOn(checked);
+                    localStorage.setItem('route-traffic-enabled', JSON.stringify(checked));
+                    
+                    // Re-draw route with new traffic setting if route exists
+                    if (routeGeometry.current) {
+                      const route = routeGeometry.current;
+                      const congestionData = checked && ordered ? [] : undefined;
+                      drawRoute(route, congestionData);
+                    }
+                  }}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label htmlFor="stabilize" className="text-sm">Stable results</Label>
+                <Switch
+                  id="stabilize"
+                  checked={stabilizeResults}
+                  onCheckedChange={(checked) => {
+                    setStabilizeResults(checked);
+                    localStorage.setItem('route-stabilize-enabled', JSON.stringify(checked));
+                  }}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Map Theme</Label>
+                <Select value={currentTheme} onValueChange={handleThemeChange}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={LIGHT}>Light</SelectItem>
+                    <SelectItem value={DARK}>Dark</SelectItem>
+                    <SelectItem value={SAT}>Satellite</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
 
-        <div className="lg:col-span-3 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Route Map</h3>
-            <Select value={currentTheme} onValueChange={setCurrentTheme}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Map Style" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={LIGHT}>Light</SelectItem>
-                <SelectItem value={DARK}>Dark</SelectItem>
-                <SelectItem value={SAT}>Satellite</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Desktop Optimize Button */}
+          <div className="hidden lg:block">
+            <Button 
+              onClick={optimizeRoute} 
+              disabled={loading} 
+              className="w-full min-h-[44px]"
+            >
+              {loading ? "Optimizing..." : routeOptimized ? "Recalculate route" : `Find shortest route${destinations.filter(d => d.trim()).length >= 2 ? ` (${destinations.filter(d => d.trim()).length + 1} stops)` : ''}`}
+            </Button>
           </div>
+
+          {/* Desktop New Route Button */}
+          {routeOptimized && (
+            <div className="hidden lg:block">
+              <AlertDialog open={showNewRouteDialog} onOpenChange={setShowNewRouteDialog}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" className="w-full">New route</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Start a new route?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Your current route data will be cleared and you'll start fresh.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleNewRoute}>Start New Route</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          )}
+        </div>
+
+        {/* Map Section */}
+        <div className="lg:col-span-3">
           <div ref={mapContainer} className="w-full h-[420px] lg:h-[620px] rounded-lg shadow-[var(--shadow-elegant)]" />
         </div>
       </div>
+
+      {/* Optimized Route Bottom Sheet Card */}
+      {ordered && (
+        <Card className="mt-6 shadow-[var(--shadow-elegant)]">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Optimized Route</CardTitle>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                {totalsLive && (
+                  <span>
+                    Live • {(toMinutes(totalsLive.duration_s)).toFixed(0)} min
+                    {totalsTypical && (
+                      <span className="ml-2">
+                        Typical • {(toMinutes(totalsTypical.duration_s)).toFixed(0)} min
+                      </span>
+                    )}
+                  </span>
+                )}
+                <Select value={units} onValueChange={(value) => setUnits(value as 'metric' | 'imperial')}>
+                  <SelectTrigger className="w-24 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="metric">km</SelectItem>
+                    <SelectItem value="imperial">mi</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ul className="divide-y">
+              {ordered.map((stop, i) => (
+                <li 
+                  key={i} 
+                  className="py-3 cursor-pointer hover:bg-muted/50 rounded-md px-2 transition-colors"
+                  onClick={() => handleRowClick(stop)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-medium mt-0.5">
+                        {stop.order === 0 ? 'S' : stop.order}
+                      </span>
+                      <div>
+                        <div className="font-medium">{shortLabel(stop.label)}</div>
+                        <div className="text-sm text-muted-foreground mt-1">{stop.label}</div>
+                      </div>
+                    </div>
+                    {stop.toNext && (
+                      <span className="text-xs px-2 py-1 rounded bg-muted whitespace-nowrap">
+                        {units === 'metric' 
+                          ? `${toKm(stop.toNext.distance_m).toFixed(1)} km`
+                          : `${toMiles(stop.toNext.distance_m).toFixed(1)} mi`
+                        } • {toMinutes(stop.toNext.duration_s).toFixed(0)} min
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* Footer Button */}
+            <div className="pt-3">
+              <Button className="w-full" onClick={() => window.open(buildGoogleMapsUrl(ordered), '_blank')}>
+                Google Maps
+              </Button>
+              <p className="mt-2 text-xs text-muted-foreground">
+                We send your typed addresses; Google may adjust pins to the nearest entrance.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Mobile sticky bottom bar */}
       {(routeOptimized || (!routeOptimized && start.trim() && destinations.filter(d => d.trim()).length >= 2)) && (
