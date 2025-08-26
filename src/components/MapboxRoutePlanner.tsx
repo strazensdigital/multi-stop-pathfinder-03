@@ -1091,19 +1091,30 @@ function downloadTxt(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+// Single-source for address-or-coord
+function addrOrCoord(s: OrderedStop) {
+  const label = (s.label || '').trim().replace(/\s+/g, ' '); // normalize spaces
+  return label && !isCoordInput(label) ? label : `${s.lat},${s.lng}`;
+}
+
+// Build Google Maps Directions URL using EXACTLY ONE round of encoding
 function buildGoogleMapsUrl(stops: OrderedStop[]) {
   if (!stops?.length) return '';
-  const enc = (x: string) => encodeURIComponent(x);
-  const adr = (s: OrderedStop) =>
-    s.label && !isCoordInput(s.label) ? enc(s.label) : `${s.lat},${s.lng}`;
 
-  const origin = adr(stops[0]);
-  const destination = adr(stops[stops.length - 1]);
-  const waypoints = stops.slice(1, -1).map(adr).join('|');
+  const origin = addrOrCoord(stops[0]);
+  const destination = addrOrCoord(stops[stops.length - 1]);
+  const waypointsStr = stops.slice(1, -1).map(addrOrCoord).join('|');
 
-  const p = new URLSearchParams({ api: '1', origin, destination, travelmode: 'driving' });
-  if (waypoints) p.set('waypoints', waypoints);
-  return `https://www.google.com/maps/dir/?${p.toString()}`;
+  // Option A: rely on URLSearchParams (no pre-encoding)
+  const params = new URLSearchParams({
+    api: '1',
+    origin,            // <- raw string; URLSearchParams will encode exactly once
+    destination,
+    travelmode: 'driving'
+  });
+  if (waypointsStr) params.set('waypoints', waypointsStr);
+
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
 
