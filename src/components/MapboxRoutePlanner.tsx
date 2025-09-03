@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Info } from "lucide-react";
+import roadLogo from "@/assets/road-logo.png";
 
 // Public token can be safely used on the client. Users can override via localStorage key "MAPBOX_TOKEN".
 const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1Ijoia3VsbHVtdXV1IiwiYSI6ImNtZTZqb2d0ODEzajYybHB1Mm0xbzBva2YifQ.zDdnxTggkS-qfrNIoLJwTw";
@@ -709,9 +710,18 @@ const MapboxRoutePlanner: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-2 space-y-4">
           {/* Header */}
-          <div className="text-center lg:text-left">
-            <h1 className="text-2xl font-bold">ZipRoute</h1>
-            <p className="text-sm text-muted-foreground mt-1">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center gap-4 mb-4">
+              <img 
+                src={roadLogo} 
+                alt="ZipRoute logo" 
+                className="w-16 h-16 object-contain"
+              />
+              <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                ZipRoute
+              </h1>
+            </div>
+            <p className="text-muted-foreground max-w-md mx-auto">
               Enter a start and 2–9 stops. We'll order and open in Google Maps.
             </p>
           </div>
