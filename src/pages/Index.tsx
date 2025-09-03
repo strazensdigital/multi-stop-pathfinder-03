@@ -1,15 +1,11 @@
 import MapboxRoutePlanner from "@/components/MapboxRoutePlanner";
+import { HamburgerMenu } from "@/components/HamburgerMenu";
 
 const Index = () => {
   return (
     <div className="min-h-screen">
-      <header className="py-8">
-        <div className="container mx-auto">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-2">Multi-Stop Route Optimizer</h1>
-          <p className="text-muted-foreground max-w-2xl">
-            Enter a starting point and 2–9 destinations. We’ll compute the shortest route using Mapbox’s Optimization API and display it on an interactive map.
-          </p>
-        </div>
+      <header className="fixed top-0 right-0 z-50 p-4">
+        <HamburgerMenu />
       </header>
       <main className="container mx-auto pb-16 space-y-8">
         <MapboxRoutePlanner />
