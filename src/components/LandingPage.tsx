@@ -1,9 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CheckCircle, Zap, Lock, MapPin, Route, Clock } from "lucide-react";
 import roadLogo from "@/assets/road-logo.png";
+import GlobalModal from "@/components/modals/GlobalModal";
+import PricingModal from "@/components/modals/PricingModal";
+import FAQModal from "@/components/modals/FAQModal";
+import PrivacyModal from "@/components/modals/PrivacyModal";
+import TermsModal from "@/components/modals/TermsModal";
+import ContactModal from "@/components/modals/ContactModal";
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -11,6 +17,79 @@ interface LandingPageProps {
 
 const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
+  const [showFAQ, setShowFAQ] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showContact, setShowContact] = useState(false);
+
+  // Handle deep linking from URL hash
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1);
+      switch (hash) {
+        case 'pricing':
+          setShowPricing(true);
+          break;
+        case 'faq':
+          setShowFAQ(true);
+          break;
+        case 'privacy':
+          setShowPrivacy(true);
+          break;
+        case 'tos':
+          setShowTerms(true);
+          break;
+        case 'contact':
+          setShowContact(true);
+          break;
+      }
+    };
+
+    // Check hash on mount
+    handleHashChange();
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const closeAllModals = () => {
+    setShowHowItWorks(false);
+    setShowPricing(false);
+    setShowFAQ(false);
+    setShowPrivacy(false);
+    setShowTerms(false);
+    setShowContact(false);
+    // Clear hash when closing modals
+    if (window.location.hash) {
+      window.history.pushState("", document.title, window.location.pathname);
+    }
+  };
+
+  const openModal = (modalType: string) => {
+    closeAllModals();
+    switch (modalType) {
+      case 'pricing':
+        setShowPricing(true);
+        break;
+      case 'faq':
+        setShowFAQ(true);
+        break;
+      case 'privacy':
+        setShowPrivacy(true);
+        break;
+      case 'terms':
+        setShowTerms(true);
+        break;
+      case 'contact':
+        setShowContact(true);
+        break;
+      case 'how-it-works':
+        setShowHowItWorks(true);
+        break;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -26,9 +105,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <span className="text-2xl font-bold text-foreground">ZipRoute</span>
           </div>
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#home" className="text-foreground hover:text-accent transition-colors">
+            <button onClick={() => openModal('home')} className="text-foreground hover:text-accent transition-colors">
               Home
-            </a>
+            </button>
             <Dialog open={showHowItWorks} onOpenChange={setShowHowItWorks}>
               <DialogTrigger asChild>
                 <button className="text-foreground hover:text-accent transition-colors">
@@ -79,12 +158,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 </div>
               </DialogContent>
             </Dialog>
-            <a href="#pricing" className="text-foreground hover:text-accent transition-colors">
+            <button onClick={() => openModal('pricing')} className="text-foreground hover:text-accent transition-colors">
               Pricing
-            </a>
-            <a href="#faq" className="text-foreground hover:text-accent transition-colors">
+            </button>
+            <button onClick={() => openModal('faq')} className="text-foreground hover:text-accent transition-colors">
               FAQ
-            </a>
+            </button>
           </nav>
         </div>
       </header>
@@ -103,9 +182,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           <Button 
             onClick={onGetStarted}
             size="lg" 
-            className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold"
+            className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold mr-4"
           >
             Get Started
+          </Button>
+          <Button 
+            onClick={() => openModal('pricing')}
+            size="lg" 
+            variant="outline"
+            className="px-8 py-4 text-lg font-semibold"
+          >
+            See Pricing
           </Button>
         </div>
       </section>
@@ -184,22 +271,82 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <span className="text-xl font-bold text-foreground">ZipRoute</span>
             </div>
             <div className="flex flex-wrap justify-center gap-6 text-sm">
-              <a href="#faq" className="text-muted-foreground hover:text-accent transition-colors">
+              <button onClick={() => openModal('faq')} className="text-muted-foreground hover:text-accent transition-colors">
                 FAQ
-              </a>
-              <a href="#privacy" className="text-muted-foreground hover:text-accent transition-colors">
+              </button>
+              <button onClick={() => openModal('privacy')} className="text-muted-foreground hover:text-accent transition-colors">
                 Privacy Policy
-              </a>
-              <a href="#contact" className="text-muted-foreground hover:text-accent transition-colors">
+              </button>
+              <button onClick={() => openModal('terms')} className="text-muted-foreground hover:text-accent transition-colors">
+                Terms of Service
+              </button>
+              <button onClick={() => openModal('contact')} className="text-muted-foreground hover:text-accent transition-colors">
                 Contact
-              </a>
+              </button>
             </div>
           </div>
+          
+          {/* Social Links */}
+          <div className="flex justify-center gap-4 mt-6">
+            <a href="mailto:support@yourdomain.com" className="text-muted-foreground hover:text-accent transition-colors p-2">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+              </svg>
+            </a>
+            <a href="#" className="text-muted-foreground hover:text-accent transition-colors p-2">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
+              </svg>
+            </a>
+          </div>
+          
           <div className="text-center text-muted-foreground text-sm mt-8">
             © 2024 ZipRoute. All rights reserved.
           </div>
         </div>
       </footer>
+
+      {/* Global Modals */}
+      <GlobalModal 
+        isOpen={showPricing} 
+        onClose={closeAllModals} 
+        title="Pricing"
+      >
+        <PricingModal onClose={closeAllModals} onGetStarted={onGetStarted} />
+      </GlobalModal>
+
+      <GlobalModal 
+        isOpen={showFAQ} 
+        onClose={closeAllModals} 
+        title="FAQ"
+      >
+        <FAQModal onClose={closeAllModals} />
+      </GlobalModal>
+
+      <GlobalModal 
+        isOpen={showPrivacy} 
+        onClose={closeAllModals} 
+        title="Privacy Policy"
+      >
+        <PrivacyModal onClose={closeAllModals} />
+      </GlobalModal>
+
+      <GlobalModal 
+        isOpen={showTerms} 
+        onClose={closeAllModals} 
+        title="Terms of Service"
+      >
+        <TermsModal onClose={closeAllModals} />
+      </GlobalModal>
+
+      <GlobalModal 
+        isOpen={showContact} 
+        onClose={closeAllModals} 
+        title="Contact Us"
+      >
+        <ContactModal onClose={closeAllModals} />
+      </GlobalModal>
     </div>
   );
 };
