@@ -36,6 +36,13 @@ const root = createRoot(rootEl);
 // Load App **dynamically** so we can catch import-time errors
 (async function boot() {
   try {
+    // right above `const mod = await import("./App.tsx");`
+    const ReactProbe = await import("react");
+    const v = (ReactProbe as any)?.version;
+    const msg = `React probe: ${(ReactProbe && typeof ReactProbe === "object") ? "ok" : "bad"} v=${v || "?"}`;
+    console.log(msg);
+    document.getElementById("boot-error")!.textContent = msg;
+
     const mod = await import("./App.tsx");
     const App = mod.default;
 
