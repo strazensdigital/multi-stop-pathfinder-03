@@ -413,9 +413,7 @@ const MapboxRoutePlanner: React.FC = () => {
     }
 
     setLoading(true);
-    try {
-      // Validate
-          // Usage metering
+        // Usage metering
     const usage = recordOptimizeUseAndCheckLimits(userId, plan, isLoggedIn);
     if (usage.blocked) {
       if (usage.reason === 'cooldown') {
@@ -433,6 +431,10 @@ const MapboxRoutePlanner: React.FC = () => {
     if (!isLoggedIn && usage.count === GUEST_LOGIN_SOFT_NUDGE_AFTER) {
       setLoginOpen(true);
     }
+
+    try {
+      // Validate
+          
 
       
       const filtered = destinations.map((d) => d.trim()).filter(Boolean);
