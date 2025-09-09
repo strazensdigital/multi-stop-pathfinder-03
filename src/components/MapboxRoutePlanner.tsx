@@ -31,17 +31,6 @@ const LIGHT = "mapbox://styles/mapbox/light-v11";
 const DARK = "mapbox://styles/mapbox/dark-v11";
 const SAT = "mapbox://styles/mapbox/satellite-streets-v12";
 const ALLOWED_STYLES = new Set([LIGHT, DARK, SAT]);
-const { session, email, plan } = useAuth();
-const isLoggedIn = !!session;
-const userId = session?.user?.id ?? null;
-
-const [paywall, setPaywall] = useState<{ open: boolean; reason?: 'address_lock'|'stops10'|'guest_limit'|'free_limit' }>({ open:false });
-const [loginOpen, setLoginOpen] = useState(false);
-const [cooldownUntil, setCooldownUntil] = useState<number | null>(() => getCooldown(userId, plan, isLoggedIn));
-const [lockedEndIndex, setLockedEndIndex] = useState<number | null>(null);
-
-const stopLimit = plan === 'pro' || plan === 'team' ? 50 : 9;
-const canAddDestination = destinations.length < stopLimit; // replace old /9
 
 
 mapboxgl.accessToken = getToken();
@@ -203,6 +192,30 @@ const MapboxRoutePlanner: React.FC = () => {
   const [routeOptimized, setRouteOptimized] = useState(false);
   const [showDestinations, setShowDestinations] = useState(true);
   const [showRouteOrder, setShowRouteOrder] = useState(false);
+
+    // --- Plan / auth / gating state (must be inside component) ---
+  const { session, email, plan } = useAuth();
+  const isLoggedIn = !!session;
+  const userId = session?.user?.id ?? null;
+  
+  const [paywall, setPaywall] = useState<{
+    open: boolean;
+    reason?: 'address_lock'|'stops10'|'guest_limit'|'free_limit'
+  }>({ open:false });
+  
+  const [loginOpen, setLoginOpen] = useState(false);
+  
+  // Initialize cooldown from localStorage for this user/plan (safe in client)
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(
+    () => getCooldown(userId, plan, isLoggedIn)
+  );
+  
+  // Pro-only: lock a destination as final stop
+  const [lockedEndIndex, setLockedEndIndex] = useState<number | null>(null);
+  
+  // Dynamic limit by plan
+  const stopLimit = (plan === 'pro' || plan === 'team') ? 50 : 9;
+
   
   // Autocomplete states
   const [suggestions, setSuggestions] = useState<{[key: string]: GeocodeResult[]}>({});
@@ -212,7 +225,7 @@ const MapboxRoutePlanner: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const canAddDestination = destinations.length < 9; // more than 1 and less than 10 => max 9 stops
+  const canAddDestination = destinations.length < stopLimit; // more than 1 and less than 10 => max 9 stops
 
   // Debounced autocomplete
   const debouncedFetchSuggestions = useMemo(
