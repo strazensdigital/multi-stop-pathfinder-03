@@ -193,6 +193,24 @@ const MapboxRoutePlanner: React.FC = () => {
   const [showDestinations, setShowDestinations] = useState(true);
   const [showRouteOrder, setShowRouteOrder] = useState(false);
 
+  // Duplicate detection (normalize + index set)
+const normalizeAddr = useCallback((s: string) => s.toLowerCase().replace(/\s+/g, " ").trim(), []);
+const duplicateIndexSet = useMemo(() => {
+  const counts = new Map<string, number>();
+  destinations.forEach((d) => {
+    const key = normalizeAddr(d);
+    if (!key) return;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  const dup = new Set<number>();
+  destinations.forEach((d, i) => {
+    const key = normalizeAddr(d);
+    if (key && counts.get(key)! > 1) dup.add(i);
+  });
+  return dup;
+}, [destinations, normalizeAddr]);
+
+
     // --- Plan / auth / gating state (must be inside component) ---
   const { session, email, plan } = useAuth();
   const isLoggedIn = !!session;
