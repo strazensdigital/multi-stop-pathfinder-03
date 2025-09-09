@@ -1136,6 +1136,10 @@ const MapboxRoutePlanner: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Paywall & Login Modals */}
+        {paywall.open && <PaywallModal reason={paywall.reason!} onClose={() => setPaywall({ open:false })} />}
+        {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
+
     </section>
   );
 };
