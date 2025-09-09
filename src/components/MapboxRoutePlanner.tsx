@@ -14,6 +14,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Info } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { canUse } from "@/lib/planGate";
+import { recordOptimizeUseAndCheckLimits, getCooldown, GUEST_LOGIN_SOFT_NUDGE_AFTER } from "@/lib/usageMeter";
+import PaywallModal from "./PaywallModal";
+import LoginModal from "./LoginModal";
+
 
 // Public token can be safely used on the client. Users can override via localStorage key "MAPBOX_TOKEN".
 const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1Ijoia3VsbHVtdXV1IiwiYSI6ImNtZTZqb2d0ODEzajYybHB1Mm0xbzBva2YifQ.zDdnxTggkS-qfrNIoLJwTw";
@@ -25,6 +31,18 @@ const LIGHT = "mapbox://styles/mapbox/light-v11";
 const DARK = "mapbox://styles/mapbox/dark-v11";
 const SAT = "mapbox://styles/mapbox/satellite-streets-v12";
 const ALLOWED_STYLES = new Set([LIGHT, DARK, SAT]);
+const { session, email, plan } = useAuth();
+const isLoggedIn = !!session;
+const userId = session?.user?.id ?? null;
+
+const [paywall, setPaywall] = useState<{ open: boolean; reason?: 'address_lock'|'stops10'|'guest_limit'|'free_limit' }>({ open:false });
+const [loginOpen, setLoginOpen] = useState(false);
+const [cooldownUntil, setCooldownUntil] = useState<number | null>(() => getCooldown(userId, plan, isLoggedIn));
+const [lockedEndIndex, setLockedEndIndex] = useState<number | null>(null);
+
+const stopLimit = plan === 'pro' || plan === 'team' ? 50 : 9;
+const canAddDestination = destinations.length < stopLimit; // replace old /9
+
 
 mapboxgl.accessToken = getToken();
 
