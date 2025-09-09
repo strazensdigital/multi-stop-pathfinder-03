@@ -867,8 +867,13 @@ const duplicateIndexSet = useMemo(() => {
                         }}
                         onFocus={() => handleInputFocus(`dest-${i}`, destination)}
                         onBlur={() => setTimeout(() => setShowSuggestions(prev => ({ ...prev, [`dest-${i}`]: false })), 150)}
-                        className="min-h-[44px]"
+                        className={`min-h-[44px] ${duplicateIndexSet.has(i) ? "border-destructive/60 focus-visible:ring-destructive" : ""}`}
                       />
+                      {duplicateIndexSet.has(i) && (
+                          <div className="text-[11px] text-destructive mt-1">
+                            Duplicate stop (we’ll still include it)
+                          </div>
+                        )}
                       {showSuggestions[`dest-${i}`] && suggestions[`dest-${i}`] && suggestions[`dest-${i}`].length > 0 && (
                         <div className="absolute top-full left-0 right-0 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
                           {suggestions[`dest-${i}`].map((suggestion, j) => (
