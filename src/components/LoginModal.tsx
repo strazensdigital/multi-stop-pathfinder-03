@@ -2,14 +2,26 @@ import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 
 export default function LoginModal({ onClose }: { onClose: () => void }) {
-  const { signIn } = useAuth();
+  const { signInWithMagicLink } = useAuth();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
+
+  
   const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await signIn(email);
-    setSent(true);
-  };
+  e.preventDefault();
+  try {
+          const { error } = await signInWithMagicLink(email, {
+            emailRedirectTo: window.location.origin, // or `${window.location.origin}/auth/callback`
+          });
+          if (error) throw error;
+          toast.success("Check your email for the magic link.");
+        } catch (err: any) {
+          console.error("[LoginModal] signInWithMagicLink failed:", err);
+          toast.error(err?.message || "Login failed");
+        }
+      };
+
+  
   return (
     <div className="fixed inset-0 bg-black/50 grid place-items-center p-4">
       <form onSubmit={submit} className="bg-white w-full max-w-sm rounded-xl p-4 space-y-3">
