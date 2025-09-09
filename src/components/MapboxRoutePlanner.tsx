@@ -833,6 +833,28 @@ const MapboxRoutePlanner: React.FC = () => {
                         Remove
                       </Button>
                     )}
+                    {(plan === 'pro' || plan === 'team') ? (
+  <Button
+    type="button"
+    variant={lockedEndIndex === i ? "default" : "outline"}
+    size="sm"
+    onClick={() => setLockedEndIndex(lockedEndIndex === i ? null : i)}
+    className="min-h-[44px] px-3 text-xs"
+  >
+    {lockedEndIndex === i ? "End (locked)" : "Set as End"}
+  </Button>
+) : (
+  <Button
+    type="button"
+    variant="outline"
+    size="sm"
+    onClick={() => setPaywall({ open:true, reason:'address_lock' })}
+    className="min-h-[44px] px-3 text-xs"
+  >
+    End (Pro)
+  </Button>
+)}
+
                   </div>
                 ))}
               </div>
