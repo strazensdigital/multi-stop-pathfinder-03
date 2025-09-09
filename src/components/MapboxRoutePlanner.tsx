@@ -402,6 +402,26 @@ const MapboxRoutePlanner: React.FC = () => {
     setLoading(true);
     try {
       // Validate
+          // Usage metering
+    const usage = recordOptimizeUseAndCheckLimits(userId, plan, isLoggedIn);
+    if (usage.blocked) {
+      if (usage.reason === 'cooldown') {
+        setCooldownUntil(usage.cooldownUntil!);
+        setPaywall({ open:true, reason: isLoggedIn ? 'free_limit' : 'guest_limit' });
+      } else if (usage.reason === 'guest_limit') {
+        setPaywall({ open:true, reason: 'guest_limit' });
+      } else if (usage.reason === 'free_limit') {
+        setPaywall({ open:true, reason: 'free_limit' });
+      }
+      setLoading(false);
+      return;
+    }
+    // Soft login nudge after 3 guest uses
+    if (!isLoggedIn && usage.count === GUEST_LOGIN_SOFT_NUDGE_AFTER) {
+      setLoginOpen(true);
+    }
+
+      
       const filtered = destinations.map((d) => d.trim()).filter(Boolean);
       if (!start.trim()) {
         toast.error("Please enter a starting point.");
@@ -436,26 +456,34 @@ const MapboxRoutePlanner: React.FC = () => {
         if (!r) throw new Error(`Could not geocode destination: ${d}`);
         destResults.push(r);
       }
-
+      
+      // If Pro/Team and a stop is locked as final destination, move it to the end BEFORE stabilizing
+      let filteredMutable = [...filtered];
+      if ((plan === 'pro' || plan === 'team') && lockedEndIndex !== null) {
+        const [lockedVal] = filteredMutable.splice(lockedEndIndex, 1);
+        filteredMutable.push(lockedVal);
+        const [lockedRes] = destResults.splice(lockedEndIndex, 1);
+        destResults.push(lockedRes);
+      }
+      
       // Build stable labels and coordinates
-      const rawInputLabels = [start, ...filtered]; // EXACT typed text
+      const rawInputLabels = [start, ...filteredMutable]; // EXACT typed text
       
       let coords: LngLat[];
       let labelsByStableIndex: string[];
 
       if (stabilizeResults) {
-        // Build stable destination array by sorting by lng asc, then lat asc
-        const stable = destResults.map((res, i) => ({
-          center: res.center as LngLat,
-          typed: filtered[i]
-        })).sort((a, b) => a.center[0] - b.center[0] || a.center[1] - b.center[1]);
-
-        coords = [startRes.center, ...stable.map(x => x.center)];
-        labelsByStableIndex = [rawInputLabels[0], ...stable.map(x => x.typed)];
-      } else {
-        coords = [startRes.center, ...destResults.map(r => r.center)];
-        labelsByStableIndex = rawInputLabels;
-      }
+          const stable = destResults.map((res, i) => ({
+            center: res.center as LngLat,
+            typed: filteredMutable[i] // was filtered[i]
+          })).sort((a, b) => a.center[0] - b.center[0] || a.center[1] - b.center[1]);
+        
+          coords = [startRes.center, ...stable.map(x => x.center)];
+          labelsByStableIndex = [rawInputLabels[0], ...stable.map(x => x.typed)];
+        } else {
+          coords = [startRes.center, ...destResults.map(r => r.center)];
+          labelsByStableIndex = rawInputLabels;
+        }
 
       const coordsStr = coords.map((c) => `${c[0]},${c[1]}`).join(";");
 
@@ -594,9 +622,13 @@ const MapboxRoutePlanner: React.FC = () => {
   }, [start, destinations, trafficOn, stabilizeResults, drawRoute, updateMarkers, fitToBounds, attachHoverTooltip]);
 
   const addDestination = () => {
-    if (!canAddDestination) return;
-    setDestinations((prev) => [...prev, ""]);
-  };
+  if (destinations.length >= stopLimit) {
+    if (!(plan === 'pro' || plan === 'team')) setPaywall({ open:true, reason:'stops10' });
+    return;
+  }
+  setDestinations((prev) => [...prev, ""]);
+};
+
 
   const removeDestination = (index: number) => {
     setDestinations((prev) => prev.filter((_, i) => i !== index));
@@ -775,7 +807,8 @@ const MapboxRoutePlanner: React.FC = () => {
           <Card className="shadow-[var(--shadow-elegant)]">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Stops (2–9)</CardTitle>
+                <CardTitle className="text-base">Stops (2–{stopLimit})</CardTitle>
+
                 <span className="text-sm text-muted-foreground">
                   {destinations.filter(d => d.trim()).length}/9
                 </span>
@@ -859,11 +892,26 @@ const MapboxRoutePlanner: React.FC = () => {
                 ))}
               </div>
               
-              {canAddDestination && (
-                <Button type="button" variant="secondary" onClick={addDestination} className="w-full min-h-[44px]">
-                  Add stop
-                </Button>
-              )}
+              {canAddDestination ? (
+  <Button
+    type="button"
+    variant="secondary"
+    onClick={addDestination}
+    className="w-full min-h-[44px]"
+  >
+    Add stop
+  </Button>
+) : (
+  <Button
+    type="button"
+    variant="secondary"
+    onClick={() => setPaywall({ open:true, reason:'stops10' })}
+    className="w-full min-h-[44px]"
+  >
+    Upgrade to add more stops
+  </Button>
+)}
+
             </CardContent>
           </Card>
 
@@ -922,13 +970,22 @@ const MapboxRoutePlanner: React.FC = () => {
 
           {/* Desktop Optimize Button */}
           <div className="hidden lg:block">
+            {/* Cooldown banner */}
+            {cooldownUntil && Date.now() < cooldownUntil && (
+              <div className="rounded-md border px-3 py-2 text-sm bg-amber-50 border-amber-200 text-amber-800 mb-2">
+                You’ve reached today’s limit. Wait ~{Math.max(0, Math.ceil((cooldownUntil - Date.now())/60000))} minutes,
+                or <button className="underline" onClick={() => setLoginOpen(true)}>log in / upgrade</button>.
+              </div>
+            )}
+            
             <Button 
               onClick={optimizeRoute} 
-              disabled={loading} 
+              disabled={loading || (cooldownUntil && Date.now() < cooldownUntil)} 
               className="w-full min-h-[44px]"
             >
               {loading ? "Optimizing..." : routeOptimized ? "Recalculate route" : `Find shortest route${destinations.filter(d => d.trim()).length >= 2 ? ` (${destinations.filter(d => d.trim()).length + 1} stops)` : ''}`}
             </Button>
+
           </div>
 
           {/* Desktop New Route Button */}
@@ -1046,7 +1103,8 @@ const MapboxRoutePlanner: React.FC = () => {
             <Button 
               className="flex-1 min-h-[44px]" 
               onClick={routeOptimized ? () => window.open(buildGoogleMapsUrl(ordered!), '_blank') : optimizeRoute}
-              disabled={loading}
+              disabled={loading || (!routeOptimized && (cooldownUntil && Date.now() < cooldownUntil))}
+
             >
               {loading ? "Optimizing..." : routeOptimized ? "Google Maps" : `Find shortest route${destinations.filter(d => d.trim()).length >= 2 ? ` (${destinations.filter(d => d.trim()).length + 1} stops)` : ''}`}
             </Button>
