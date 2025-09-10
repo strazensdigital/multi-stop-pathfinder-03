@@ -919,7 +919,6 @@ const duplicateIndexSet = useMemo(() => {
   >
     {lockedEndIndex === i ? "End (locked)" : "Set as End"}
   </Button>
-) : (
  
 )}
 
