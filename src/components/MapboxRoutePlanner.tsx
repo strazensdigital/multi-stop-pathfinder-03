@@ -1056,32 +1056,39 @@ const duplicateIndexSet = useMemo(() => {
       {/* Optimized Route Bottom Sheet Card */}
       {ordered && (
         <Card className="mt-6 shadow-[var(--shadow-elegant)]">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Optimized Route</CardTitle>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-base">Optimized Route</CardTitle>
+            <div className="flex items-center gap-3">
+              {/* Totals & units (see Fix 6) */}
+              <div className="hidden sm:flex items-center gap-3 text-sm text-muted-foreground">
                 {totalsLive && (
                   <span>
-                    Live • {(toMinutes(totalsLive.duration_s)).toFixed(0)} min
-                    {totalsTypical && (
-                      <span className="ml-2">
-                        Typical • {(toMinutes(totalsTypical.duration_s)).toFixed(0)} min
-                      </span>
-                    )}
+                    {(units === 'metric'
+                      ? (totalsLive.distance_m / 1000).toFixed(1) + " km"
+                      : (totalsLive.distance_m * 0.000621371).toFixed(1) + " mi")}
+                    {" • "}
+                    {Math.round(totalsLive.duration_s / 60)} min
                   </span>
                 )}
-                <Select value={units} onValueChange={(value) => setUnits(value as 'metric' | 'imperial')}>
-                  <SelectTrigger className="w-24 h-8">
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select value={units} onValueChange={(v) => setUnits(v as 'metric'|'imperial')}>
+                  <SelectTrigger className="w-24 h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="metric">km</SelectItem>
                     <SelectItem value="imperial">mi</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+        
+              {routeOptimized && (
+                <Button size="sm" variant="secondary" onClick={optimizeRoute}>
+                  Recalculate
+                </Button>
+              )}
             </div>
-          </CardHeader>
+          </div>
+        </CardHeader>
+
           <CardContent className="space-y-3">
             <ul className="divide-y">
               {ordered.map((stop, i) => (
