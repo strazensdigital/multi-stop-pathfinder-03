@@ -428,6 +428,11 @@ const duplicateIndexSet = useMemo(() => {
     if (trafficOn === null) {
       setShowTrafficDialog(true);
       return;
+      // Soft warning if duplicates exist
+      if (duplicateIndexSet.size > 0) {
+        toast("Duplicates detected — we’ll include them as typed.");
+      }
+
     }
 
     setLoading(true);
@@ -915,15 +920,7 @@ const duplicateIndexSet = useMemo(() => {
     {lockedEndIndex === i ? "End (locked)" : "Set as End"}
   </Button>
 ) : (
-  <Button
-    type="button"
-    variant="outline"
-    size="sm"
-    onClick={() => setPaywall({ open:true, reason:'address_lock' })}
-    className="min-h-[44px] px-3 text-xs"
-  >
-    End (Pro)
-  </Button>
+ 
 )}
 
                   </div>
