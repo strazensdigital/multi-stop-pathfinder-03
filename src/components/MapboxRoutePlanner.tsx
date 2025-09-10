@@ -909,21 +909,20 @@ const duplicateIndexSet = useMemo(() => {
                         Remove
                       </Button>
                     )}
-                    {(plan === 'pro' || plan === 'team') ? (
-  <Button
-    type="button"
-    variant={lockedEndIndex === i ? "default" : "outline"}
-    size="sm"
-    onClick={() => setLockedEndIndex(lockedEndIndex === i ? null : i)}
-    className="min-h-[44px] px-3 text-xs"
-  >
-    {lockedEndIndex === i ? "End (locked)" : "Set as End"}
-  </Button>
- 
-)}
+                 {(plan === 'pro' || plan === 'team') && (
+      <Button
+        type="button"
+        variant={lockedEndIndex === i ? "default" : "outline"}
+        size="sm"
+        onClick={() => setLockedEndIndex(lockedEndIndex === i ? null : i)}
+        className="min-h-[44px] px-3 text-xs"
+      >
+        {lockedEndIndex === i ? "End (locked)" : "Set as End"}
+      </Button>
+    )}
+  </div>
+))}
 
-                  </div>
-                ))}
               </div>
               
               {canAddDestination ? (
