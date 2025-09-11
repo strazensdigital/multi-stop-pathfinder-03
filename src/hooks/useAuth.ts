@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient"; // <-- update if your path differs
+import { toast } from "sonner";
 
 export type Plan = "free" | "pro" | "team";
 
@@ -18,7 +19,14 @@ export function useAuth() {
     plan: "free",
   });
 
-  // Optional: local fallback if you stored plan client-side during tests
+  const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const wasLoggedIn = !!state.session;
+    const nowLoggedIn = !!s;
+    setState({ ...state, session: s ?? null, email: s?.user?.email ?? null, plan: (s?.user?.user_metadata?.plan as any) || "free" });
+    if (!wasLoggedIn && nowLoggedIn) toast.success("Welcome back!");
+  });
+
+// Optional: local fallback if you stored plan client-side during tests
   const localPlan = useMemo<Plan>(() => {
     const p = localStorage.getItem("plan");
     return (p === "pro" || p === "team") ? p : "free";
@@ -87,8 +95,10 @@ export function useAuth() {
     await supabase.auth.signInWithOtp({ email });
   };
   const signOut = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     setState(s => ({ ...s, session: null, email: null, plan: "free" }));
+    toast("Signed out");
   };
 
   return {
