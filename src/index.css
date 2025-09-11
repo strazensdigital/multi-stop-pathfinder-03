@@ -108,6 +108,30 @@ All colors MUST be HSL.
   color: transparent;
 }
 
+.brand-kicker {
+  color: hsl(var(--muted-foreground));
+  font-size: .9rem;
+}
+
+.hairline {
+  border-color: hsl(var(--hairline)) !important;
+}
+
+/* Softer card shadow everywhere you used shadow-[var(--shadow-elegant)] */
+.shadow-elegant {
+  box-shadow: var(--shadow-elegant);
+}
+
+/* Slight glow on primary buttons when focused */
+button:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in oklab, hsl(var(--primary)) 30%, white);
+}
+
+/* Optional: super-subtle top border under the header */
+.app-top-border {
+  box-shadow: inset 0 -1px 0 0 hsl(var(--hairline));
+}
+
 @layer base {
   * {
     @apply border-border;
