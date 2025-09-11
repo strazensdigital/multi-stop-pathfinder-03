@@ -798,9 +798,9 @@ const duplicateIndexSet = useMemo(() => {
         <div className="lg:col-span-2 space-y-4">
           {/* Header */}
           <div className="text-center lg:text-left">
-            <h1 className="text-2xl font-bold">ZipRoute</h1>
+           
             <p className="text-sm text-muted-foreground mt-1">
-              Enter a start and 2–9 stops. We'll order and open in Google Maps.
+              Enter a start and 2–9 stops. We'll optimize your route.
             </p>
           </div>
 
