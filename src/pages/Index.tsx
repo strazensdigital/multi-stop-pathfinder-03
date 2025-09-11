@@ -1,5 +1,5 @@
 import MapboxRoutePlanner from "@/components/MapboxRoutePlanner";
-
+import Header from "@/components/Header";
 import AccountSheet from "@/components/AccountSheet";
 
 const Index = () => {
