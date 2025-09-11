@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthCallback from "@/pages/AuthCallback";
+import LoginModal from "@/components/LoginModal";
 
 const queryClient = new QueryClient();
 
