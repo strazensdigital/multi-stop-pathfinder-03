@@ -799,13 +799,13 @@ const duplicateIndexSet = useMemo(() => {
           {/* Header */}
           <div className="text-center lg:text-left">
            
-            <p className="text-sm text-muted-foreground mt-1">
-              Enter a start and 2–9 stops. We'll optimize your route.
-            </p>
+           <span className="brand-kicker">Optimize multi-stop routes in seconds — free, fast, Google Maps-ready.</span>
+              
+
           </div>
 
           {/* Card A - Start */}
-          <Card className="shadow-[var(--shadow-elegant)]">
+          <Card className="shadow-elegant">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Start</CardTitle>
             </CardHeader>
@@ -842,7 +842,7 @@ const duplicateIndexSet = useMemo(() => {
           </Card>
 
           {/* Card B - Stops */}
-          <Card className="shadow-[var(--shadow-elegant)]">
+          <Card className="shadow-elegant">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Stops (2–{stopLimit})</CardTitle>
@@ -949,7 +949,7 @@ const duplicateIndexSet = useMemo(() => {
           </Card>
 
           {/* Card C - Options */}
-          <Card className="shadow-[var(--shadow-elegant)]">
+          <Card className="shadow-elegant">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Options</CardTitle>
             </CardHeader>
@@ -1047,13 +1047,13 @@ const duplicateIndexSet = useMemo(() => {
 
         {/* Map Section */}
         <div className="lg:col-span-3">
-          <div ref={mapContainer} className="w-full h-[420px] lg:h-[620px] rounded-lg shadow-[var(--shadow-elegant)]" />
+          <div ref={mapContainer} className="w-full h-[420px] lg:h-[620px] rounded-lg shadow-elegant" />
         </div>
       </div>
 
       {/* Optimized Route Bottom Sheet Card */}
       {ordered && (
-        <Card className="mt-6 shadow-[var(--shadow-elegant)]">
+        <Card className="mt-6 shadow-elegant">
                   <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="text-base">Optimized Route</CardTitle>
