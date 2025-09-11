@@ -1,41 +1,63 @@
-import { useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
+import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
-export default function LoginModal({ onClose }: { onClose: () => void }) {
-  const { signInWithMagicLink } = useAuth();
-  const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
+export default function LoginModal() {
+  const { signInWithMagicLink, isLoggedIn, email: currentEmail } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
 
-  
+  // open from anywhere
+  useEffect(() => {
+    const fn = () => setOpen(true);
+    window.addEventListener("open-login" as any, fn);
+    return () => window.removeEventListener("open-login" as any, fn);
+  }, []);
+
+  // closed if already logged in
+  useEffect(() => {
+    if (isLoggedIn) setOpen(false);
+  }, [isLoggedIn]);
+
   const submit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  try {
-          const { error } = await signInWithMagicLink(email, {
-            emailRedirectTo: window.location.origin, // or `${window.location.origin}/auth/callback`
-          });
-          if (error) throw error;
-          toast.success("Check your email for the magic link.");
-        } catch (err: any) {
-          console.error("[LoginModal] signInWithMagicLink failed:", err);
-          toast.error(err?.message || "Login failed");
-        }
-      };
+    e.preventDefault();
+    try {
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const redirect =
+        import.meta.env.VITE_AUTH_REDIRECT_URL || `${origin}/auth/callback`; // set this env in Vercel
+      const { error } = await signInWithMagicLink(email, { emailRedirectTo: redirect });
+      if (error) throw error;
+      toast.success("Check your email for the magic link.");
+    } catch (err: any) {
+      console.error("[LoginModal] magic link error:", err);
+      toast.error(err?.message || "Login failed");
+    }
+  };
 
-  
   return (
-    <div className="fixed inset-0 bg-black/50 grid place-items-center p-4">
-      <form onSubmit={submit} className="bg-white w-full max-w-sm rounded-xl p-4 space-y-3">
-        <h3 className="text-lg font-semibold">Sign in to continue</h3>
-        {sent ? (
-          <p>Check your email for the magic link.</p>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isLoggedIn ? `You’re signed in as ${currentEmail ?? ""}` : "Log in / Sign up"}</DialogTitle>
+        </DialogHeader>
+        {!isLoggedIn ? (
+          <form onSubmit={submit} className="space-y-3">
+            <Input
+              type="email"
+              placeholder="you@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <Button type="submit" className="w-full">Send magic link</Button>
+          </form>
         ) : (
-          <>
-            <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@company.com" className="w-full border rounded p-2" />
-            <button className="w-full bg-black text-white rounded p-2">Send magic link</button>
-          </>
+          <div className="text-sm text-muted-foreground">Already logged in.</div>
         )}
-        <button type="button" onClick={onClose} className="w-full border rounded p-2">Close</button>
-      </form>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
