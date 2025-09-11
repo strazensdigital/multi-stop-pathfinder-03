@@ -13,6 +13,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <LoginModal />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
