@@ -15,6 +15,7 @@ export default function AuthCallback() {
           const { data, error } = await supabase.auth.exchangeCodeForSession({ code });
           if (error) throw error;
           toast.success("Welcome back!");
+          if (error) throw error;
         }
       } catch (e: any) {
         console.error("[AuthCallback] exchange failed", e);
