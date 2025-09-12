@@ -12,8 +12,13 @@ export default function PaywallModal({ reason, onClose }: { reason: Reason, onCl
       headers: { 'content-type':'application/json' },
       body: JSON.stringify({ email })
     });
+    if (!resp.ok) {
+      const msg = await resp.text();
+      alert('Checkout failed: ' + msg);
+      return;
+    }
     const { url } = await resp.json();
-    window.location.href = url;
+    if (url) window.location.href = url;
   };
 
   const title =
