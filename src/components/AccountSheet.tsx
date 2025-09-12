@@ -104,8 +104,8 @@ export default function AccountSheet() {
             >
               Upgrade to Pro
             </button>
-            <button
-              onClick={() => signOut()}
+              <button
+              onClick={async () => { await signOut(); setOpen(false); window.location.href = '/'; }}
               className="w-full border rounded p-2"
             >
               Sign out
