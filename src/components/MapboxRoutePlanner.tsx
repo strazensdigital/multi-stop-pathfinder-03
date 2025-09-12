@@ -19,12 +19,12 @@ import { canUse } from "@/lib/planGate";
 import { recordOptimizeUseAndCheckLimits, getCooldown, GUEST_LOGIN_SOFT_NUDGE_AFTER } from "@/lib/usageMeter";
 import PaywallModal from "./PaywallModal";
 import LoginModal from "./LoginModal";
+import { supabase } from "@/lib/supabaseClient";
 
 
 // Public token can be safely used on the client. Users can override via localStorage key "MAPBOX_TOKEN".
-const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1Ijoia3VsbHVtdXV1IiwiYSI6ImNtZTZqb2d0ODEzajYybHB1Mm0xbzBva2YifQ.zDdnxTggkS-qfrNIoLJwTw";
-
-const getToken = () => localStorage.getItem("MAPBOX_TOKEN") || DEFAULT_MAPBOX_TOKEN;
+const ENV_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string | undefined;
+const getToken = () => localStorage.getItem("MAPBOX_TOKEN") || ENV_MAPBOX_TOKEN || "";
 
 // Map style constants
 const LIGHT = "mapbox://styles/mapbox/light-v11";
@@ -34,6 +34,9 @@ const ALLOWED_STYLES = new Set([LIGHT, DARK, SAT]);
 
 
 mapboxgl.accessToken = getToken();
+if (!mapboxgl.accessToken) {
+  console.warn("[Mapbox] Missing token. Set VITE_MAPBOX_ACCESS_TOKEN on Vercel.");
+}
 
 type LngLat = [number, number];
 
@@ -166,6 +169,7 @@ const MapboxRoutePlanner: React.FC = () => {
   const lastRouteGeojsonRef = useRef<Feature<LineString> | null>(null);
   const lastPaintRef = useRef<any>(null);
   const lastMarkerDataRef = useRef<{ coord: LngLat; color: string; label: string; role: string; index?: number }[]>([]);
+  const cameraRef = useRef<{ center: LngLat; zoom: number; bearing: number; pitch: number } | null>(null);
 
   const [start, setStart] = useState<string>("");
   const [destinations, setDestinations] = useState<string[]>([""]);
@@ -263,13 +267,15 @@ const duplicateIndexSet = useMemo(() => {
   useEffect(() => {
     if (!mapContainer.current) return;
 
+    const cam = cameraRef.current;
     mapRef.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: currentTheme,
-      center: [0, 20],
-      zoom: 1.5,
+      center: cam?.center ?? [0, 20],
+      zoom: cam?.zoom ?? 1.5,
       projection: "globe",
-      pitch: 30,
+      pitch: cam?.pitch ?? 30,
+      bearing: cam?.bearing ?? 0,
     });
 
     mapRef.current.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
@@ -297,7 +303,20 @@ const duplicateIndexSet = useMemo(() => {
 
     mapRef.current.on("style.load", handleStyleLoad);
 
-    return () => {
+      return () => {
+      if (mapRef.current) {
+        cameraRef.current = [
+          mapRef.current.getCenter().lng,
+          mapRef.current.getCenter().lat
+        ] as LngLat
+          ? {
+              center: [mapRef.current.getCenter().lng, mapRef.current.getCenter().lat] as LngLat,
+              zoom: mapRef.current.getZoom(),
+              bearing: mapRef.current.getBearing(),
+              pitch: mapRef.current.getPitch(),
+            }
+          : cameraRef.current;
+      }
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
       mapRef.current?.remove();
@@ -650,6 +669,24 @@ const duplicateIndexSet = useMemo(() => {
         mapContainer.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
 
+        try {
+        const { data: sess } = await supabase.auth.getSession();
+        const uid = sess.session?.user?.id;
+        if (uid) {
+          await supabase.from('routes').insert({
+            user_id: uid,
+            name: `Route ${new Date().toLocaleString()}`,
+            stops: orderedStops.map(s => ({ order: s.order, label: s.label, lat: s.lat, lng: s.lng }))
+          });
+          await supabase.from('usage_events').insert({
+            user_id: uid,
+           event_type: 'route_optimize',
+            meta: { stop_count: orderedStops.length, distance_m: liveTotalDistanceM, duration_s: liveTotalDurationS }
+          });
+        }
+      } catch (e) {
+        console.warn("[save route]:", e);
+      }
       toast.success("Optimized route ready!");
     } catch (e: any) {
       console.error(e);
@@ -1046,8 +1083,19 @@ const duplicateIndexSet = useMemo(() => {
         </div>
 
         {/* Map Section */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 relative">
           <div ref={mapContainer} className="w-full h-[420px] lg:h-[620px] rounded-lg shadow-elegant" />
+          {trafficOn && (
+            <div className="pointer-events-none absolute bottom-3 left-3 bg-background/90 backdrop-blur px-3 py-2 rounded-xl border text-xs">
+             <div className="font-medium mb-1">Traffic</div>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-1 rounded bg-green-500" />Fast</span>
+                <span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-1 rounded bg-yellow-500" />Moderate</span>
+                <span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-1 rounded bg-orange-500" />Slow</span>
+                <span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-1 rounded bg-red-600" />Heavy</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1077,7 +1125,27 @@ const duplicateIndexSet = useMemo(() => {
                   </SelectContent>
                 </Select>
               </div>
-        
+               {/* Mobile totals */}
+              <div className="sm:hidden flex items-center gap-2 text-sm text-muted-foreground">
+                {totalsLive && (
+                  <span>
+                    {(units === 'metric'
+                      ? (totalsLive.distance_m / 1000).toFixed(1) + " km"
+                      : (totalsLive.distance_m * 0.000621371).toFixed(1) + " mi")}
+                    {" • "}
+                    {Math.round(totalsLive.duration_s / 60)} min
+                  </span>
+                )}
+                <Select value={units} onValueChange={(v) => setUnits(v as 'metric'|'imperial')}>
+                  <SelectTrigger className="w-20 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="metric">km</SelectItem>
+                    <SelectItem value="imperial">mi</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              
               {routeOptimized && (
                 <Button size="sm" variant="secondary" onClick={optimizeRoute}>
                   Recalculate
