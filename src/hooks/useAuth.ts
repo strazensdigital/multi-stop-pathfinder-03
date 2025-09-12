@@ -1,47 +1,123 @@
-import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabaseClient"; // <-- update if your path differs
 import { toast } from "sonner";
 
+export type Plan = "free" | "pro" | "team";
+
+type AuthState = {
+  loading: boolean;
+  session: any | null;
+  email: string | null;
+  plan: Plan;
+};
+
 export function useAuth() {
-  const [session, setSession] = useState<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null>(null);
-  const welcomedRef = useRef(false);
+  const [state, setState] = useState<AuthState>({
+    loading: true,
+    session: null,
+    email: null,
+    plan: "free",
+  });
 
-  useEffect(() => {
-    let mounted = true;
+  const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const wasLoggedIn = !!state.session;
+    const nowLoggedIn = !!s;
+    setState({ ...state, session: s ?? null, email: s?.user?.email ?? null, plan: (s?.user?.user_metadata?.plan as any) || "free" });
+    if (!wasLoggedIn && nowLoggedIn) toast.success("Welcome back!");
+  });
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session ?? null);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session ?? null);
-
-      // Dedupe "welcome back" in StrictMode & multiple mounts
-      if (event === "SIGNED_IN" && !welcomedRef.current) {
-        welcomedRef.current = true;
-
-        // Log a login usage event
-        if (session?.user?.id) {
-          await supabase.from("usage_events").insert({
-            user_id: session.user.id,
-            event_type: "login",
-            meta: {}
-          }).single().catch(() => {});
-        }
-
-        toast.success("Welcome back!");
-      }
-      if (event === "SIGNED_OUT") {
-        welcomedRef.current = false;
-      }
-    });
-
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
+// Optional: local fallback if you stored plan client-side during tests
+  const localPlan = useMemo<Plan>(() => {
+    const p = localStorage.getItem("plan");
+    return (p === "pro" || p === "team") ? p : "free";
   }, []);
 
-  return { session, user: session?.user ?? null };
+  useEffect(() => {
+    let unsub: (() => void) | null = null;
+
+    async function bootstrap() {
+      // 1) Get current session
+      const { data } = await supabase.auth.getSession();
+      const session = data.session ?? null;
+      const email = session?.user?.email ?? null;
+
+      // 2) Fetch plan for logged-in users (profiles table or user metadata)
+      let plan: Plan = localPlan;
+      if (session?.user) {
+        // Try user metadata first
+        const metaPlan = session.user.user_metadata?.plan as Plan | undefined;
+        if (metaPlan) plan = metaPlan;
+        else {
+          // Or read from profiles table if you store it there
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("plan")
+            .eq("id", session.user.id)
+            .single();
+          if (profile?.plan === "pro" || profile?.plan === "team") {
+            plan = profile.plan;
+          }
+        }
+      }
+
+      +      // ensure a profiles row exists for this user (id/email)
+      if (session?.user?.id) {
+        await supabase.from('profiles')
+          .upsert({ id: session.user.id, email: session.user.email, plan }, { onConflict: 'id' });
+      }
+      setState({ loading: false, session, email, plan });
+
+      // 3) Subscribe to auth changes
+      const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+        const ns = newSession ?? null;
+        const nEmail = ns?.user?.email ?? null;
+
+        // Re-evaluate plan on change
+        let nPlan: Plan = "free";
+        const metaPlan = ns?.user?.user_metadata?.plan as Plan | undefined;
+        if (metaPlan) {
+          nPlan = metaPlan;
+        } else if (ns?.user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("plan")
+            .eq("id", ns.user.id)
+            .single();
+          if (profile?.plan === "pro" || profile?.plan === "team") nPlan = profile.plan;
+        }
+
+        if (ns?.user?.id) {
+          await supabase.from('profiles')
+            .upsert({ id: ns.user.id, email: ns.user.email, plan: nPlan }, { onConflict: 'id' });
+        }
+        setState({ loading: false, session: ns, email: nEmail, plan: nPlan });
+      });
+
+      unsub = () => sub?.subscription.unsubscribe();
+    }
+
+    bootstrap();
+    return () => { unsub?.(); };
+  }, [localPlan]);
+
+     const signInWithMagicLink = async (
+       email: string,
+       options?: { emailRedirectTo?: string }
+     ) => {
+       // return the response so callers can safely destructure { error }
+       return await supabase.auth.signInWithOtp({ email, options });
+      };
+  const signOut = async () => {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setState(s => ({ ...s, session: null, email: null, plan: "free" }));
+    toast("Signed out");
+  };
+
+  return {
+    ...state,
+    isLoggedIn: !!state.session,
+    signInWithMagicLink,
+    signOut,
+  };
 }
