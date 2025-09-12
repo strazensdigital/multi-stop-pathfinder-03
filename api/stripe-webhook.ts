@@ -28,9 +28,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const s = event.data.object as Stripe.Checkout.Session;
     const email = (s.customer_details?.email ?? s.customer_email) as string | undefined;
     if (email) {
-      const supabase = createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!);
-      // Set plan to pro for the matching profile
-      await supabase.from('profiles').update({ plan: 'pro' }).eq('email', email);
+      const admin = createClient(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+      await admin.from('profiles').update({ plan: 'pro' }).eq('email', email);
     }
   }
 
