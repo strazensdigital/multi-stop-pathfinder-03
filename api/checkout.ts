@@ -3,11 +3,15 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_PRICE_PRO) {
+    return res.status(500).json({ error: 'Server misconfigured' });
+  }
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 
   const { email } = req.body as { email?: string };
-  const success = `${process.env.APP_URL ?? 'https://'+req.headers.host}/app?upgraded=1`;
-  const cancel = `${process.env.APP_URL ?? 'https://'+req.headers.host}/app?canceled=1`;
+  const base = process.env.APP_URL ?? 'https://' + req.headers.host;
+  const success = `${base}/app?upgraded=1`;
+  const cancel = `${base}/app?canceled=1`;
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
