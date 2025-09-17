@@ -13,5 +13,9 @@ if (!url || !anon) {
 // Fallback values are only to prevent hard crashes if envs are missing in previews.
 // Replace ASAP with real envs in Vercel.
   export const supabase = createClient(url, anon, {
-    auth: { persistSession: true, autoRefreshToken: true }
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true // ensure PKCE/code parsing is enabled
+    }
   });
