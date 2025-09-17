@@ -1,4 +1,3 @@
-// src/hooks/useAuth.ts
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { Session } from "@supabase/supabase-js";
@@ -8,7 +7,7 @@ type AuthState = {
   loading: boolean;
   session: Session | null;
   email: string | null;
-  plan: string; // "free" | "pro"
+  plan: "free" | "pro";
 };
 
 export function useAuth() {
@@ -20,100 +19,89 @@ export function useAuth() {
   });
   const welcomedRef = useRef(false);
 
+  // helper: refresh plan from profiles in background
+  const refreshPlan = async (userId?: string, email?: string) => {
+    if (!userId) return;
+    try {
+      const { data: row } = await supabase
+        .from("profiles")
+        .select("plan")
+        .eq("id", userId)
+        .single();
+
+      const plan = (row?.plan as "free" | "pro") || "free";
+
+      // best-effort: ensure row exists & mirror to metadata (ignore RLS errors)
+      await supabase
+        .from("profiles")
+        .upsert({ id: userId, email, plan }, { onConflict: "id" });
+      try {
+        await supabase.auth.updateUser({ data: { plan } });
+      } catch {}
+
+      setState(prev => ({ ...prev, plan }));
+    } catch {
+      /* ignore */
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
-    // Initial load
     (async () => {
       const { data } = await supabase.auth.getSession();
       const session = data.session ?? null;
-      let plan = "free";
-      const email = session?.user?.email ?? null;
-
-      if (session?.user?.id) {
-        // read plan from profiles (id = auth.users.id)
-        const { data: row } = await supabase
-          .from("profiles")
-          .select("plan")
-          .eq("id", session.user.id)
-          .single();
-
-        plan = (row?.plan as string) || "free";
-
-        // ensure profile exists & mirror plan to auth metadata
-        await supabase
-          .from("profiles")
-          .upsert(
-            { id: session.user.id, email: session.user.email, plan },
-            { onConflict: "id" }
-          );
-        try {
-          await supabase.auth.updateUser({ data: { plan } });
-        } catch {
-          /* ignore */
-        }
-      }
-
       if (!mounted) return;
-      setState({ loading: false, session, email, plan });
+
+      // Optimistic set: flip UI immediately
+      setState({
+        loading: false,
+        session,
+        email: session?.user?.email ?? null,
+        plan: "free",
+      });
+
+      // Background plan fetch
+      await refreshPlan(session?.user?.id, session?.user?.email ?? undefined);
     })();
 
-    // Auth change subscription
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, ns) => {
-      const session = ns ?? null;
-      const email = session?.user?.email ?? null;
-      let plan = "free";
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, s) => {
+      // Optimistic set first
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        session: s ?? null,
+        email: s?.user?.email ?? null,
+      }));
 
-      if (session?.user?.id) {
-        const { data: row } = await supabase
-          .from("profiles")
-          .select("plan")
-          .eq("id", session.user.id)
-          .single();
-
-        plan = (row?.plan as string) || "free";
-
-        await supabase
-          .from("profiles")
-          .upsert(
-            { id: session.user.id, email: session.user.email, plan },
-            { onConflict: "id" }
-          );
-        try {
-          await supabase.auth.updateUser({ data: { plan } });
-        } catch {
-          /* ignore */
-        }
+      if (s?.user?.id) {
+        refreshPlan(s.user.id, s.user.email ?? undefined);
+      } else {
+        setState(prev => ({ ...prev, plan: "free" }));
       }
-
-      setState({ loading: false, session, email, plan });
 
       if (event === "SIGNED_IN" && !welcomedRef.current) {
         welcomedRef.current = true;
-        // optional usage event
         try {
-          if (session?.user?.id) {
-            await supabase
-              .from("usage_events")
-              .insert({ user_id: session.user.id, event_type: "login", meta: {} });
+          if (s?.user?.id) {
+            await supabase.from("usage_events").insert({
+              user_id: s.user.id,
+              event_type: "login",
+              meta: {},
+            });
           }
-        } catch {/* ignore */}
+        } catch {}
         toast.success("Welcome back!");
       }
 
       if (event === "SIGNED_OUT") {
         welcomedRef.current = false;
-        setState({ loading: false, session: null, email: null, plan: "free" });
       }
     });
 
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Exposed API
   const signInWithMagicLink = async (
     email: string,
     options?: { emailRedirectTo?: string }
