@@ -19,8 +19,7 @@ export function useAuth() {
   });
   const welcomedRef = useRef(false);
 
-  // helper: refresh plan from profiles in background
-  const refreshPlan = async (userId?: string, email?: string) => {
+  const refreshPlan = async (userId?: string, email?: string | null) => {
     if (!userId) return;
     try {
       const { data: row } = await supabase
@@ -28,54 +27,43 @@ export function useAuth() {
         .select("plan")
         .eq("id", userId)
         .single();
-
       const plan = (row?.plan as "free" | "pro") || "free";
-
-      // best-effort: ensure row exists & mirror to metadata (ignore RLS errors)
-      await supabase
-        .from("profiles")
-        .upsert({ id: userId, email, plan }, { onConflict: "id" });
-      try {
-        await supabase.auth.updateUser({ data: { plan } });
-      } catch {}
-
+      // Ensure row exists & mirror metadata (ignore if RLS blocks)
+      await supabase.from("profiles").upsert(
+        { id: userId, email: email ?? undefined, plan },
+        { onConflict: "id" }
+      );
+      try { await supabase.auth.updateUser({ data: { plan } }); } catch {}
       setState(prev => ({ ...prev, plan }));
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   };
 
   useEffect(() => {
-    let mounted = true;
-
     (async () => {
       const { data } = await supabase.auth.getSession();
       const session = data.session ?? null;
-      if (!mounted) return;
-
-      // Optimistic set: flip UI immediately
+      // Optimistic set for UI
       setState({
         loading: false,
         session,
         email: session?.user?.email ?? null,
         plan: "free",
       });
-
       // Background plan fetch
-      await refreshPlan(session?.user?.id, session?.user?.email ?? undefined);
+      await refreshPlan(session?.user?.id, session?.user?.email ?? null);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, s) => {
-      // Optimistic set first
+      // Update UI first
       setState(prev => ({
         ...prev,
         loading: false,
         session: s ?? null,
         email: s?.user?.email ?? null,
       }));
-
+      // Fetch plan in background
       if (s?.user?.id) {
-        refreshPlan(s.user.id, s.user.email ?? undefined);
+        refreshPlan(s.user.id, s.user.email ?? null);
       } else {
         setState(prev => ({ ...prev, plan: "free" }));
       }
