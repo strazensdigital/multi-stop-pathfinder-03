@@ -98,8 +98,26 @@ export function useAuth() {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      // Use global to revoke refresh tokens across devices (Supabase JS v2)
+      await supabase.auth.signOut({ scope: "global" as any });
+    } catch (e) {
+      // fallback to local sign out if SDK complains about scope (older versions)
+      try { await supabase.auth.signOut(); } catch {}
+    } finally {
+      // Defensive: nuke any lingering sb-* auth tokens in localStorage
+      try {
+        if (typeof window !== "undefined") {
+          Object.keys(localStorage)
+            .filter((k) => /^sb-.*-auth-token$/i.test(k))
+            .forEach((k) => localStorage.removeItem(k));
+        }
+      } catch {}
+      // Optimistically clear local state so UI flips immediately
+      setState({ loading: false, session: null, email: null, plan: "free" });
+    }
   };
+
 
   return {
     ...state,
