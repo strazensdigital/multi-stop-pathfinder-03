@@ -6,19 +6,29 @@ type Reason = 'address_lock' | 'stops10' | 'guest_limit' | 'free_limit';
 export default function PaywallModal({ reason, onClose }: { reason: Reason, onClose:()=>void }) {
   const { email } = useAuth();
 
-  const upgrade = async () => {
+const upgrade = async () => {
+    const newWindow = window.open('', '_blank');
+    if (newWindow) newWindow.document.write('Loading checkout...');
+
     const resp = await fetch('/api/checkout', {
       method: 'POST',
       headers: { 'content-type':'application/json' },
       body: JSON.stringify({ email })
     });
+    
     if (!resp.ok) {
       const msg = await resp.text();
       alert('Checkout failed: ' + msg);
+      newWindow?.close();
       return;
     }
+
     const { url } = await resp.json();
-    if (url) window.location.href = url;
+    if (url && newWindow) {
+      newWindow.location.href = url;
+    } else if (newWindow) {
+      newWindow.close();
+    }
   };
 
   const title =
