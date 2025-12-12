@@ -696,17 +696,19 @@ const duplicateIndexSet = useMemo(() => {
     }
   }, [start, destinations, trafficOn, stabilizeResults, drawRoute, updateMarkers, fitToBounds, attachHoverTooltip]);
 
-  const addDestination = () => {
-  if (destinations.length >= stopLimit) {
-    if (!(plan === 'pro' || plan === 'team')) setPaywall({ open:true, reason:'stops10' });
-    return;
-  }
-  setDestinations((prev) => [...prev, ""]);
-};
+const addDestination = () => {
+    if (destinations.length >= stopLimit) {
+      if (!(plan === 'pro' || plan === 'team')) setPaywall({ open:true, reason:'stops10' });
+      return;
+    }
+    setDestinations((prev) => [...prev, ""]);
+    setRouteOptimized(false); // <--- ADD THIS LINE
+  };
 
 
-  const removeDestination = (index: number) => {
+const removeDestination = (index: number) => {
     setDestinations((prev) => prev.filter((_, i) => i !== index));
+    setRouteOptimized(false); // <--- ADD THIS LINE
   };
 
   const saveToRecentAddresses = (address: string) => {
@@ -716,8 +718,9 @@ const duplicateIndexSet = useMemo(() => {
     localStorage.setItem('recent_addresses', JSON.stringify(updated));
   };
 
-  const handleInputChange = (value: string, key: string, setter: (value: string) => void) => {
+const handleInputChange = (value: string, key: string, setter: (value: string) => void) => {
     setter(value);
+    setRouteOptimized(false); // <--- ADD THIS LINE
     debouncedFetchSuggestions(value, key);
     if (value.trim()) {
       setShowSuggestions(prev => ({ ...prev, [key]: true }));
