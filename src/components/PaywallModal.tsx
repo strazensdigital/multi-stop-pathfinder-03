@@ -1,33 +1,41 @@
-// src/components/PaywallModal.tsx
 import { useAuth } from '../hooks/useAuth';
+import { AlertDialogAction } from "@/components/ui/alert-dialog"; // Ensure you import UI components if you use them, otherwise use standard buttons
 
 type Reason = 'address_lock' | 'stops10' | 'guest_limit' | 'free_limit';
 
 export default function PaywallModal({ reason, onClose }: { reason: Reason, onClose:()=>void }) {
   const { email } = useAuth();
 
-const upgrade = async () => {
+  const upgrade = async () => {
+    // 1. Open new window immediately
     const newWindow = window.open('', '_blank');
     if (newWindow) newWindow.document.write('Loading checkout...');
 
-    const resp = await fetch('/api/checkout', {
-      method: 'POST',
-      headers: { 'content-type':'application/json' },
-      body: JSON.stringify({ email })
-    });
-    
-    if (!resp.ok) {
-      const msg = await resp.text();
-      alert('Checkout failed: ' + msg);
-      newWindow?.close();
-      return;
-    }
+    try {
+      const resp = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'content-type':'application/json' },
+        body: JSON.stringify({ email })
+      });
+      
+      if (!resp.ok) {
+        const msg = await resp.text();
+        alert('Checkout failed: ' + msg);
+        newWindow?.close();
+        return;
+      }
 
-    const { url } = await resp.json();
-    if (url && newWindow) {
-      newWindow.location.href = url;
-    } else if (newWindow) {
-      newWindow.close();
+      const { url } = await resp.json();
+      
+      // 2. Redirect
+      if (url && newWindow) {
+        newWindow.location.href = url;
+      } else if (newWindow) {
+        newWindow.close();
+      }
+    } catch (e) {
+      console.error(e);
+      newWindow?.close();
     }
   };
 
@@ -47,20 +55,28 @@ const upgrade = async () => {
     : 'You’ve reached today’s limit on the Free plan. Upgrade to Pro to continue immediately.';
 
   return (
-    <div className="fixed inset-0 bg-black/50 grid place-items-center p-4">
-      <div className="bg-white w-full max-w-sm rounded-xl p-4 space-y-3">
+    <div className="fixed inset-0 bg-black/50 grid place-items-center p-4 z-[60]"> 
+      {/* Added z-[60] to ensure it sits above everything else */}
+      <div className="bg-white w-full max-w-sm rounded-xl p-4 space-y-3 shadow-xl">
         <h3 className="text-lg font-semibold">{title}</h3>
         <p>{body}</p>
 
         {reason === 'guest_limit' ? (
-          <button onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('open-login')); }} className="w-full bg-black text-white rounded p-2">
+          <button 
+            onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('open-login')); }} 
+            className="w-full bg-black text-white rounded p-2"
+          >
             Log in / Sign up
           </button>
         ) : reason === 'free_limit' || reason === 'stops10' || reason === 'address_lock' ? (
-          <button onClick={upgrade} className="w-full bg-black text-white rounded p-2">Upgrade to Pro</button>
+          <button onClick={upgrade} className="w-full bg-black text-white rounded p-2">
+            Upgrade to Pro
+          </button>
         ) : null}
 
-        <button onClick={onClose} className="w-full border rounded p-2">Not now</button>
+        <button onClick={onClose} className="w-full border rounded p-2">
+          Not now
+        </button>
       </div>
     </div>
   );
