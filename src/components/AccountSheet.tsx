@@ -104,12 +104,17 @@ export default function AccountSheet() {
             >
               Upgrade to Pro
             </button>
-              <button
-              onClick={async () => { await signOut(); setOpen(false); window.location.href = '/'; }}
-              className="w-full border rounded p-2"
-            >
-              Sign out
-            </button>
+              <Button 
+  variant="ghost" 
+  className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 z-50 pointer-events-auto" // Added z-50 and pointer-events-auto
+  onClick={() => {
+    signOut(); // Ensure this calls your useAuth signOut
+    setOpen(false); // Close the sheet manually to prevent UI freezing
+  }}
+>
+  <LogOut className="mr-2 h-4 w-4" />
+  Sign Out
+</Button>
           </div>
         )}
 
@@ -125,12 +130,17 @@ export default function AccountSheet() {
             >
               Manage billing / Unsubscribe
             </button>
-            <button
-              onClick={() => signOut()}
-              className="w-full border rounded p-2"
-            >
-              Sign out
-            </button>
+            <Button 
+  variant="ghost" 
+  className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 z-50 pointer-events-auto" // Added z-50 and pointer-events-auto
+  onClick={() => {
+    signOut(); // Ensure this calls your useAuth signOut
+    setOpen(false); // Close the sheet manually to prevent UI freezing
+  }}
+>
+  <LogOut className="mr-2 h-4 w-4" />
+  Sign Out
+</Button>
           </div>
         )}
       </SheetContent>
