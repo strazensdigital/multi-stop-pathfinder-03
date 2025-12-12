@@ -1,4 +1,3 @@
-// src/components/AccountSheet.tsx
 import { useEffect, useState } from "react";
 import {
   Sheet,
@@ -8,11 +7,11 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
+import { LogOut } from "lucide-react"; // Ensure you have this icon or remove the icon component below if not
 
 export default function AccountSheet() {
   const { isLoggedIn, email, plan, signOut } = useAuth();
   const [open, setOpen] = useState(false);
-  // keeping view in case you open the drawer at a specific tab later
   const [view, setView] = useState<"plan" | "billing">("plan");
 
   useEffect(() => {
@@ -24,14 +23,18 @@ export default function AccountSheet() {
     return () => window.removeEventListener("open-account-drawer" as any, onOpen);
   }, []);
 
-const upgrade = async () => {
+  // Defined here so 'upgrade' and 'manageBilling' can use it
+  const openLogin = () =>
+    window.dispatchEvent(new CustomEvent("open-login"));
+
+  const upgrade = async () => {
     if (!isLoggedIn) {
       openLogin();
       return;
     }
 
-    // 1. Open the new window immediately so the browser doesn't block it
-    const newWindow = window.open('', '_blank'); 
+    // Open window immediately to prevent popup blocker
+    const newWindow = window.open('', '_blank');
     if (newWindow) newWindow.document.write('Loading checkout...');
 
     try {
@@ -42,11 +45,10 @@ const upgrade = async () => {
       });
       const { url } = await resp.json();
       
-      // 2. Redirect that new window to the Stripe URL
       if (url && newWindow) {
         newWindow.location.href = url;
       } else if (newWindow) {
-        newWindow.close(); // Close if no URL returned
+        newWindow.close();
       }
     } catch (err) {
       console.error("[AccountSheet] upgrade failed:", err);
@@ -54,7 +56,7 @@ const upgrade = async () => {
     }
   };
 
-const manageBilling = async () => {
+  const manageBilling = async () => {
     if (!isLoggedIn) {
       openLogin();
       return;
@@ -123,17 +125,17 @@ const manageBilling = async () => {
             >
               Upgrade to Pro
             </button>
-              <Button 
-  variant="ghost" 
-  className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 z-50 pointer-events-auto" // Added z-50 and pointer-events-auto
-  onClick={() => {
-    signOut(); // Ensure this calls your useAuth signOut
-    setOpen(false); // Close the sheet manually to prevent UI freezing
-  }}
->
-  <LogOut className="mr-2 h-4 w-4" />
-  Sign Out
-</Button>
+              <button
+              className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 z-50 pointer-events-auto border rounded p-2 flex items-center"
+              onClick={async () => { 
+                await signOut(); 
+                setOpen(false); 
+                window.location.href = '/'; 
+              }}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </button>
           </div>
         )}
 
@@ -149,17 +151,13 @@ const manageBilling = async () => {
             >
               Manage billing / Unsubscribe
             </button>
-            <Button 
-  variant="ghost" 
-  className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 z-50 pointer-events-auto" // Added z-50 and pointer-events-auto
-  onClick={() => {
-    signOut(); // Ensure this calls your useAuth signOut
-    setOpen(false); // Close the sheet manually to prevent UI freezing
-  }}
->
-  <LogOut className="mr-2 h-4 w-4" />
-  Sign Out
-</Button>
+            <button
+              className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 z-50 pointer-events-auto border rounded p-2 flex items-center"
+              onClick={() => signOut()}
+            >
+               <LogOut className="mr-2 h-4 w-4" />
+               Sign out
+            </button>
           </div>
         )}
       </SheetContent>
