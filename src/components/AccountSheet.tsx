@@ -24,14 +24,16 @@ export default function AccountSheet() {
     return () => window.removeEventListener("open-account-drawer" as any, onOpen);
   }, []);
 
-  const openLogin = () =>
-    window.dispatchEvent(new CustomEvent("open-login"));
-
-  const upgrade = async () => {
+const upgrade = async () => {
     if (!isLoggedIn) {
       openLogin();
       return;
     }
+
+    // 1. Open the new window immediately so the browser doesn't block it
+    const newWindow = window.open('', '_blank'); 
+    if (newWindow) newWindow.document.write('Loading checkout...');
+
     try {
       const resp = await fetch("/api/checkout", {
         method: "POST",
@@ -39,17 +41,28 @@ export default function AccountSheet() {
         body: JSON.stringify({ email }),
       });
       const { url } = await resp.json();
-      if (url) window.location.href = url;
+      
+      // 2. Redirect that new window to the Stripe URL
+      if (url && newWindow) {
+        newWindow.location.href = url;
+      } else if (newWindow) {
+        newWindow.close(); // Close if no URL returned
+      }
     } catch (err) {
       console.error("[AccountSheet] upgrade failed:", err);
+      newWindow?.close();
     }
   };
 
-  const manageBilling = async () => {
+const manageBilling = async () => {
     if (!isLoggedIn) {
       openLogin();
       return;
     }
+
+    const newWindow = window.open('', '_blank');
+    if (newWindow) newWindow.document.write('Loading portal...');
+
     try {
       const resp = await fetch("/api/portal", {
         method: "POST",
@@ -57,9 +70,15 @@ export default function AccountSheet() {
         body: JSON.stringify({ email }),
       });
       const { url } = await resp.json();
-      if (url) window.location.href = url;
+      
+      if (url && newWindow) {
+        newWindow.location.href = url;
+      } else if (newWindow) {
+        newWindow.close();
+      }
     } catch (err) {
       console.error("[AccountSheet] manageBilling failed:", err);
+      newWindow?.close();
     }
   };
 
