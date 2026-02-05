@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, X, User, LogOut } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AuthDialog } from "@/components/AuthDialog";
@@ -32,25 +32,21 @@ export function HamburgerMenu() {
           className="w-80 bg-background/95 backdrop-blur-sm border-border/40"
         >
           <div className="flex flex-col space-y-6 mt-8">
-            <div className="flex items-center space-x-3 p-4 rounded-lg bg-muted/50">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <User className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <div className="flex-1">
-                {user ? (
-                  <>
-                    <p className="text-sm font-medium text-foreground">
-                      {user.email}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Signed in</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-medium text-foreground">Guest</p>
-                    <p className="text-xs text-muted-foreground">Not signed in</p>
-                  </>
-                )}
-              </div>
+            {/* Account Section */}
+            <div className="space-y-2">
+              <h2 className="text-lg font-bold text-foreground">Account</h2>
+              {user ? (
+                <p className="text-sm text-muted-foreground">
+                  {user.email} · Plan: Free
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">Guest · Plan: Free</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    You're browsing as a guest. Log in to save routes and upgrade to Pro.
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -58,9 +54,8 @@ export function HamburgerMenu() {
                 <Button
                   variant="outline"
                   onClick={handleSignOut}
-                  className="w-full justify-start text-left font-normal border-border/40 hover:bg-muted"
+                  className="w-full justify-center font-normal border-border/40 hover:bg-muted"
                 >
-                  <LogOut className="mr-3 h-4 w-4" />
                   Sign Out
                 </Button>
               ) : (
@@ -70,10 +65,9 @@ export function HamburgerMenu() {
                     setIsAuthDialogOpen(true);
                     setIsSheetOpen(false);
                   }}
-                  className="w-full justify-start text-left font-normal border-border/40 hover:bg-muted"
+                  className="w-full justify-center font-normal border-border/40 hover:bg-muted"
                 >
-                  <User className="mr-3 h-4 w-4" />
-                  Sign In / Register
+                  Log in / Sign up
                 </Button>
               )}
             </div>
