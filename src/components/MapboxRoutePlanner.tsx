@@ -14,7 +14,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Info } from "lucide-react";
-import roadLogo from "@/assets/road-logo.png";
 
 // Public token can be safely used on the client. Users can override via localStorage key "MAPBOX_TOKEN".
 const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1Ijoia3VsbHVtdXV1IiwiYSI6ImNtZTZqb2d0ODEzajYybHB1Mm0xbzBva2YifQ.zDdnxTggkS-qfrNIoLJwTw";
@@ -707,27 +706,22 @@ const MapboxRoutePlanner: React.FC = () => {
 
   return (
     <section className={`w-full ${ordered ? 'pb-[calc(88px+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}>
+      {/* App Header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">ZipRoute</h1>
+          <span className="text-sm font-medium text-accent">Free multi-stop optimizer</span>
+        </div>
+      </div>
+      <p className="text-sm text-muted-foreground italic mb-6">
+        Optimize multi-stop routes in seconds — free, fast, Google Maps-ready.
+      </p>
+
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center gap-4 mb-4">
-              <img 
-                src={roadLogo} 
-                alt="ZipRoute logo" 
-                className="w-16 h-16 object-contain"
-              />
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                ZipRoute
-              </h1>
-            </div>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Enter a start and 2–9 stops. We'll order and open in Google Maps.
-            </p>
-          </div>
 
           {/* Card A - Start */}
-          <Card className="shadow-[var(--shadow-elegant)]">
+          <Card className="shadow-[var(--shadow-elegant)] border-l-2 border-l-accent/30">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Start</CardTitle>
             </CardHeader>
@@ -764,7 +758,7 @@ const MapboxRoutePlanner: React.FC = () => {
           </Card>
 
           {/* Card B - Stops */}
-          <Card className="shadow-[var(--shadow-elegant)]">
+          <Card className="shadow-[var(--shadow-elegant)] border-l-2 border-l-accent/30">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Stops (2–9)</CardTitle>
@@ -830,7 +824,7 @@ const MapboxRoutePlanner: React.FC = () => {
               </div>
               
               {canAddDestination && (
-                <Button type="button" variant="secondary" onClick={addDestination} className="w-full min-h-[44px]">
+                <Button type="button" onClick={addDestination} className="w-full min-h-[44px] btn-hero">
                   Add stop
                 </Button>
               )}
@@ -838,7 +832,7 @@ const MapboxRoutePlanner: React.FC = () => {
           </Card>
 
           {/* Card C - Options */}
-          <Card className="shadow-[var(--shadow-elegant)]">
+          <Card className="shadow-[var(--shadow-elegant)] border-l-2 border-l-accent/30">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Options</CardTitle>
             </CardHeader>
@@ -895,7 +889,7 @@ const MapboxRoutePlanner: React.FC = () => {
             <Button 
               onClick={optimizeRoute} 
               disabled={loading} 
-              className="w-full min-h-[44px]"
+              className="w-full min-h-[44px] btn-hero"
             >
               {loading ? "Optimizing..." : routeOptimized ? "Recalculate route" : `Find shortest route${destinations.filter(d => d.trim()).length >= 2 ? ` (${destinations.filter(d => d.trim()).length + 1} stops)` : ''}`}
             </Button>
@@ -1014,7 +1008,7 @@ const MapboxRoutePlanner: React.FC = () => {
               </Button>
             )}
             <Button 
-              className="flex-1 min-h-[44px]" 
+              className="flex-1 min-h-[44px] btn-hero" 
               onClick={routeOptimized ? () => window.open(buildGoogleMapsUrl(ordered!), '_blank') : optimizeRoute}
               disabled={loading}
             >

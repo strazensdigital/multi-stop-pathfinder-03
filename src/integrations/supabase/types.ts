@@ -16,59 +16,72 @@ export type Database = {
     Tables: {
       profiles: {
         Row: {
-          created_at: string | null
-          email: string
+          email: string | null
           id: string
-          plan: string
+          plan: string | null
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string | null
-          email: string
-          id?: string
-          plan?: string
+          email?: string | null
+          id: string
+          plan?: string | null
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string | null
-          email?: string
+          email?: string | null
           id?: string
-          plan?: string
+          plan?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
       routes: {
         Row: {
-          created_at: string | null
-          id: string
+          created_at: string
+          id: number
           name: string | null
           stops: Json | null
-          updated_at: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
-          created_at?: string | null
-          id?: string
+          created_at?: string
+          id?: number
           name?: string | null
           stops?: Json | null
-          updated_at?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
-          created_at?: string | null
-          id?: string
+          created_at?: string
+          id?: number
           name?: string | null
           stops?: Json | null
-          updated_at?: string | null
-          user_id?: string | null
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "routes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      usage_events: {
+        Row: {
+          created_at: string
+          event_type: string | null
+          id: number
+          meta: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type?: string | null
+          id?: number
+          meta?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string | null
+          id?: number
+          meta?: Json | null
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
