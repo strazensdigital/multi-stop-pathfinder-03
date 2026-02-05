@@ -6,14 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { OrderedStop, formatArrowString, reverseGeocode, toKm, toMiles, toMinutes, isCoordInput } from "@/lib/utils";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Info } from "lucide-react";
 
 // Public token can be safely used on the client. Users can override via localStorage key "MAPBOX_TOKEN".
 const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1Ijoia3VsbHVtdXV1IiwiYSI6ImNtZTZqb2d0ODEzajYybHB1Mm0xbzBva2YifQ.zDdnxTggkS-qfrNIoLJwTw";
@@ -55,7 +52,6 @@ const geocode = async (query: string): Promise<GeocodeResult | null> => {
   return { place_name: feat.place_name, center: feat.center as LngLat };
 };
 
-// Fetch autocomplete suggestions
 const fetchSuggestions = async (query: string, proximity?: LngLat): Promise<GeocodeResult[]> => {
   if (!query.trim()) return [];
   const encoded = encodeURIComponent(query.trim());
@@ -71,7 +67,6 @@ const fetchSuggestions = async (query: string, proximity?: LngLat): Promise<Geoc
   }));
 };
 
-// Debounce function
 const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): T => {
   let timeoutId: NodeJS.Timeout;
   return ((...args: Parameters<T>) => {
@@ -80,10 +75,8 @@ const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): T =
   }) as T;
 };
 
-// Build traffic paint from ratio
 const buildTrafficPaintFromRatio = (liveTrip: any, typicalTrip: any) => {
   if (!liveTrip?.legs || !typicalTrip?.legs) {
-    // Fallback to congestion-based coloring if available
     if (liveTrip?.legs) {
       let congestionData: string[] = [];
       liveTrip.legs.forEach((leg: any) => {
@@ -94,10 +87,10 @@ const buildTrafficPaintFromRatio = (liveTrip: any, typicalTrip: any) => {
       
       if (congestionData.length > 0) {
         const congestionColors = {
-          low: "#22c55e",     // green
-          moderate: "#eab308", // yellow
-          heavy: "#f97316",   // orange
-          severe: "#ef4444"   // red
+          low: "#22c55e",
+          moderate: "#eab308",
+          heavy: "#f97316",
+          severe: "#ef4444"
         };
         
         const stops: any[] = ["interpolate", ["linear"], ["line-progress"]];
@@ -130,10 +123,10 @@ const buildTrafficPaintFromRatio = (liveTrip: any, typicalTrip: any) => {
   ratios.forEach((ratio, i) => {
     const progress = ratios.length === 1 ? 0 : i / (ratios.length - 1);
     let color;
-    if (ratio <= 1.1) color = "#22c55e";      // green - good traffic
-    else if (ratio <= 1.3) color = "#eab308"; // yellow - moderate traffic
-    else if (ratio <= 1.6) color = "#f97316"; // orange - heavy traffic
-    else color = "#ef4444";                    // red - severe traffic
+    if (ratio <= 1.1) color = "#22c55e";
+    else if (ratio <= 1.3) color = "#eab308";
+    else if (ratio <= 1.6) color = "#f97316";
+    else color = "#ef4444";
     stops.push(progress, color);
   });
 
@@ -148,6 +141,29 @@ const getCurrentPosition = (): Promise<GeolocationPosition> =>
     });
   });
 
+/* ─── Traffic Legend Component ─── */
+const TrafficLegend: React.FC = () => (
+  <div className="inline-flex items-center gap-4 px-4 py-2 rounded-lg border border-border bg-background/90 backdrop-blur-sm text-xs">
+    <span className="font-medium text-foreground">Traffic</span>
+    <span className="flex items-center gap-1">
+      <span className="w-3 h-1.5 rounded-full" style={{ backgroundColor: "#22c55e" }} />
+      Fast
+    </span>
+    <span className="flex items-center gap-1">
+      <span className="w-3 h-1.5 rounded-full" style={{ backgroundColor: "#eab308" }} />
+      Moderate
+    </span>
+    <span className="flex items-center gap-1">
+      <span className="w-3 h-1.5 rounded-full" style={{ backgroundColor: "#f97316" }} />
+      Slow
+    </span>
+    <span className="flex items-center gap-1">
+      <span className="w-3 h-1.5 rounded-full" style={{ backgroundColor: "#ef4444" }} />
+      Heavy
+    </span>
+  </div>
+);
+
 const MapboxRoutePlanner: React.FC = () => {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -155,7 +171,6 @@ const MapboxRoutePlanner: React.FC = () => {
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const geocodeCache = useRef(new Map<string, {place_name: string, center: [number,number]}>());
   
-  // Persistence refs for theme switching
   const lastRouteGeojsonRef = useRef<Feature<LineString> | null>(null);
   const lastPaintRef = useRef<any>(null);
   const lastMarkerDataRef = useRef<{ coord: LngLat; color: string; label: string; role: string; index?: number }[]>([]);
@@ -178,13 +193,11 @@ const MapboxRoutePlanner: React.FC = () => {
   });
   const [currentTheme, setCurrentTheme] = useState<string>(() => {
     const saved = localStorage.getItem("MAP_STYLE");
-    return ALLOWED_STYLES.has(saved || "") ? saved! : SAT;   // default Satellite
+    return ALLOWED_STYLES.has(saved || "") ? saved! : SAT;
   });
   const [showTrafficDialog, setShowTrafficDialog] = useState(false);
   const [showNewRouteDialog, setShowNewRouteDialog] = useState(false);
   const [routeOptimized, setRouteOptimized] = useState(false);
-  const [showDestinations, setShowDestinations] = useState(true);
-  const [showRouteOrder, setShowRouteOrder] = useState(false);
   
   // Autocomplete states
   const [suggestions, setSuggestions] = useState<{[key: string]: GeocodeResult[]}>({});
@@ -194,16 +207,14 @@ const MapboxRoutePlanner: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const canAddDestination = destinations.length < 9; // more than 1 and less than 10 => max 9 stops
+  const canAddDestination = destinations.length < 9;
 
-  // Debounced autocomplete
   const debouncedFetchSuggestions = useMemo(
     () => debounce(async (query: string, key: string) => {
       if (!query.trim()) {
         setSuggestions(prev => ({ ...prev, [key]: [] }));
         return;
       }
-      
       const startCenter = mapRef.current ? [mapRef.current.getCenter().lng, mapRef.current.getCenter().lat] as LngLat : undefined;
       const results = await fetchSuggestions(query, startCenter);
       setSuggestions(prev => ({ ...prev, [key]: results }));
@@ -228,20 +239,15 @@ const MapboxRoutePlanner: React.FC = () => {
 
     const handleStyleLoad = () => {
       if (!mapRef.current) return;
-      
       mapRef.current.setFog({
         color: "rgb(255, 255, 255)",
         "high-color": "rgb(200, 220, 255)",
         "horizon-blend": 0.2,
       });
-
-      // Re-add route and markers if they exist
       if (lastRouteGeojsonRef.current) {
         addOrUpdateRoute(lastRouteGeojsonRef.current, lastPaintRef.current);
       }
-      
       if (lastMarkerDataRef.current.length > 0) {
-        // Re-add markers from stored data
         updateMarkers(lastMarkerDataRef.current);
       }
     };
@@ -256,7 +262,6 @@ const MapboxRoutePlanner: React.FC = () => {
     };
   }, [currentTheme]);
 
-  // Save theme to localStorage when changed
   useEffect(() => {
     localStorage.setItem("MAP_STYLE", currentTheme);
   }, [currentTheme]);
@@ -275,11 +280,8 @@ const MapboxRoutePlanner: React.FC = () => {
     el.tabIndex = 0;
   }, []);
 
-  // Update markers function to store marker data
   const updateMarkers = useCallback((points: { coord: LngLat; color: string; label: string; role: string; index?: number }[]) => {
-    // Store marker data for persistence
     lastMarkerDataRef.current = points;
-    
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
@@ -292,8 +294,6 @@ const MapboxRoutePlanner: React.FC = () => {
       el.textContent = typeof index === "number" ? (index === 0 ? "S" : String(index)) : "";
       
       const marker = new mapboxgl.Marker({ element: el }).setLngLat(coord).addTo(mapRef.current!);
-      
-      // Create tooltip content
       const tooltipContent = `
         <div class="p-2 text-sm">
           <div class="font-medium">${label}</div>
@@ -302,7 +302,6 @@ const MapboxRoutePlanner: React.FC = () => {
           </div>
         </div>
       `;
-      
       attachHoverTooltip(mapRef.current!, marker, tooltipContent);
       markersRef.current.push(marker);
     });
@@ -318,15 +317,12 @@ const MapboxRoutePlanner: React.FC = () => {
   const addOrUpdateRoute = useCallback((geojson: Feature<LineString>, paintOverrides?: any) => {
     const map = mapRef.current;
     if (!map) return;
-
-    // Store for rehydration
     lastRouteGeojsonRef.current = geojson;
     lastPaintRef.current = paintOverrides;
 
     const source = map.getSource(routeSourceId.current) as mapboxgl.GeoJSONSource | undefined;
     if (source) {
       source.setData(geojson as any);
-      // Apply paint overrides
       if (paintOverrides) {
         Object.entries(paintOverrides).forEach(([property, value]) => {
           map.setPaintProperty("route-line", property as any, value);
@@ -338,13 +334,11 @@ const MapboxRoutePlanner: React.FC = () => {
         data: geojson as any,
         lineMetrics: true,
       } as any);
-
       const defaultPaint = {
         "line-width": 6,
         "line-opacity": 0.9,
         "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "#7c3aed", 1, "#06b6d4"],
       };
-
       map.addLayer({
         id: "route-line",
         type: "line",
@@ -358,24 +352,14 @@ const MapboxRoutePlanner: React.FC = () => {
   const drawRoute = useCallback((geojson: Feature<LineString>, liveTrip?: any, typicalTrip?: any) => {
     const map = mapRef.current;
     if (!map) return;
-
     routeGeometry.current = geojson;
-
     const paintOverrides = trafficOn ? buildTrafficPaintFromRatio(liveTrip, typicalTrip) : undefined;
-
-    const ensureLayer = () => {
-      addOrUpdateRoute(geojson, paintOverrides);
-    };
-
-    if (map.isStyleLoaded()) {
-      ensureLayer();
-    } else {
-      map.once("load", ensureLayer);
-    }
+    const ensureLayer = () => { addOrUpdateRoute(geojson, paintOverrides); };
+    if (map.isStyleLoaded()) { ensureLayer(); }
+    else { map.once("load", ensureLayer); }
   }, [trafficOn, addOrUpdateRoute]);
 
   const optimizeRoute = useCallback(async () => {
-    // Check if traffic preference needs to be asked
     if (trafficOn === null) {
       setShowTrafficDialog(true);
       return;
@@ -383,29 +367,16 @@ const MapboxRoutePlanner: React.FC = () => {
 
     setLoading(true);
     try {
-      // Validate
       const filtered = destinations.map((d) => d.trim()).filter(Boolean);
-      if (!start.trim()) {
-        toast.error("Please enter a starting point.");
-        return;
-      }
-      if (filtered.length < 2) {
-        toast.error("Add at least 2 destinations (max 9).");
-        return;
-      }
+      if (!start.trim()) { toast.error("Please enter a starting point."); return; }
+      if (filtered.length < 2) { toast.error("Add at least 2 destinations (max 9)."); return; }
 
-      // Geocode with caching
       const geocodeWithCache = async (query: string): Promise<GeocodeResult | null> => {
         const normalizedQuery = query.toLowerCase().replace(/\s+/g, ' ').trim();
         const cached = geocodeCache.current.get(normalizedQuery);
-        if (cached) {
-          return { place_name: cached.place_name, center: cached.center };
-        }
-
+        if (cached) return { place_name: cached.place_name, center: cached.center };
         const result = await geocode(query);
-        if (result) {
-          geocodeCache.current.set(normalizedQuery, result);
-        }
+        if (result) geocodeCache.current.set(normalizedQuery, result);
         return result;
       };
 
@@ -419,19 +390,15 @@ const MapboxRoutePlanner: React.FC = () => {
         destResults.push(r);
       }
 
-      // Build stable labels and coordinates
-      const rawInputLabels = [start, ...filtered]; // EXACT typed text
-      
+      const rawInputLabels = [start, ...filtered];
       let coords: LngLat[];
       let labelsByStableIndex: string[];
 
       if (stabilizeResults) {
-        // Build stable destination array by sorting by lng asc, then lat asc
         const stable = destResults.map((res, i) => ({
           center: res.center as LngLat,
           typed: filtered[i]
         })).sort((a, b) => a.center[0] - b.center[0] || a.center[1] - b.center[1]);
-
         coords = [startRes.center, ...stable.map(x => x.center)];
         labelsByStableIndex = [rawInputLabels[0], ...stable.map(x => x.typed)];
       } else {
@@ -440,8 +407,6 @@ const MapboxRoutePlanner: React.FC = () => {
       }
 
       const coordsStr = coords.map((c) => `${c[0]},${c[1]}`).join(";");
-
-      // Build requests
       const baseParams = `source=first&destination=last&roundtrip=false&geometries=geojson&overview=full&access_token=${getToken()}`;
       
       let liveUrl: string;
@@ -455,14 +420,12 @@ const MapboxRoutePlanner: React.FC = () => {
         typicalUrl = liveUrl;
       }
 
-      // Fetch live route
       const liveRes = await fetch(liveUrl);
       if (!liveRes.ok) throw new Error("Optimization request failed");
       const liveData = await liveRes.json();
       const liveTrip = liveData?.trips?.[0];
       if (!liveTrip) throw new Error("No route found. Try different locations.");
 
-      // Fetch typical route if needed
       let typicalTrip = liveTrip;
       if (trafficOn && typicalUrl !== liveUrl) {
         const typicalRes = await fetch(typicalUrl);
@@ -473,95 +436,56 @@ const MapboxRoutePlanner: React.FC = () => {
       }
 
       const route = liveTrip.geometry as LineString;
-      
-      // Extract congestion data for coloring
-      let congestionData: string[] = [];
-      if (trafficOn && liveTrip.legs) {
-        liveTrip.legs.forEach((leg: any) => {
-          if (leg.annotation?.congestion) {
-            congestionData = congestionData.concat(leg.annotation.congestion);
-          }
-        });
-      }
-
       drawRoute({ type: "Feature", geometry: route, properties: {} }, liveTrip, typicalTrip);
 
-      // Build ordered stops with correct labels using origIndex pattern
       const rawWaypoints = (liveData?.waypoints || []).map((wp: any, idx: number) => ({...wp, origIndex: idx}));
       const orderedWaypoints = rawWaypoints.slice().sort((a, b) => a.waypoint_index - b.waypoint_index);
       const legs = liveTrip.legs || [];
 
       const orderedStops: OrderedStop[] = [];
-
       for (let i = 0; i < orderedWaypoints.length; i++) {
         const wp = orderedWaypoints[i];
         const [lng, lat] = wp.location;
         const orig = orderedWaypoints[i].origIndex;
-        
         let label = (labelsByStableIndex[orig] ?? '').trim();
         if (!label || isCoordInput(label)) {
           const rev = await reverseGeocode(lat, lng, getToken());
           label = rev || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         }
-
-        const stop: OrderedStop = {
-          order: i,
-          role: i === 0 ? 'Start' : 'Stop',
-          label, lat, lng,
-        };
-
+        const stop: OrderedStop = { order: i, role: i === 0 ? 'Start' : 'Stop', label, lat, lng };
         if (i < legs.length) {
-          const leg = legs[i];
-          stop.toNext = {
-            distance_m: leg.distance || 0,
-            duration_s: leg.duration || 0,
-          };
+          stop.toNext = { distance_m: legs[i].distance || 0, duration_s: legs[i].duration || 0 };
         }
         orderedStops.push(stop);
       }
 
-      // Save + render
       setOrdered(orderedStops);
       setArrow(formatArrowString(orderedStops));
 
-      // Calculate totals
       const liveTotalDistanceM = typeof liveTrip.distance === "number"
-        ? liveTrip.distance
-        : legs.reduce((s, l) => s + (l.distance || 0), 0);
+        ? liveTrip.distance : legs.reduce((s: number, l: any) => s + (l.distance || 0), 0);
       const liveTotalDurationS = typeof liveTrip.duration === "number"
-        ? liveTrip.duration
-        : legs.reduce((s, l) => s + (l.duration || 0), 0);
-
+        ? liveTrip.duration : legs.reduce((s: number, l: any) => s + (l.duration || 0), 0);
       const typicalTotalDurationS = trafficOn && typicalTrip !== liveTrip
-        ? (typeof typicalTrip.duration === "number"
-          ? typicalTrip.duration
+        ? (typeof typicalTrip.duration === "number" ? typicalTrip.duration
           : (typicalTrip.legs || []).reduce((s: number, l: any) => s + (l.duration || 0), 0))
         : liveTotalDurationS;
 
       setTotalsLive({ distance_m: liveTotalDistanceM, duration_s: liveTotalDurationS });
-      if (trafficOn) {
-        setTotalsTypical({ distance_m: liveTotalDistanceM, duration_s: typicalTotalDurationS });
-      } else {
-        setTotalsTypical(null);
-      }
+      if (trafficOn) { setTotalsTypical({ distance_m: liveTotalDistanceM, duration_s: typicalTotalDurationS }); }
+      else { setTotalsTypical(null); }
 
-      // IMPORTANT: tooltips must use stop.label
       updateMarkers(orderedStops.map((stop, i) => ({
         coord: [stop.lng, stop.lat] as LngLat,
         color: i === 0 ? "#7c3aed" : "#06b6d4",
-        label: stop.label,             // <- typed label only
+        label: stop.label,
         role: stop.role,
         index: stop.order,
       })));
 
       fitToBounds(route.coordinates as LngLat[]);
-      
-      // Post-optimize UX
       setRouteOptimized(true);
-      setShowDestinations(false);
-      setShowRouteOrder(true);
-      
-      // Auto-scroll map into view
+
       setTimeout(() => {
         mapContainer.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
@@ -594,9 +518,7 @@ const MapboxRoutePlanner: React.FC = () => {
   const handleInputChange = (value: string, key: string, setter: (value: string) => void) => {
     setter(value);
     debouncedFetchSuggestions(value, key);
-    if (value.trim()) {
-      setShowSuggestions(prev => ({ ...prev, [key]: true }));
-    }
+    if (value.trim()) { setShowSuggestions(prev => ({ ...prev, [key]: true })); }
   };
 
   const handleSuggestionSelect = (suggestion: GeocodeResult, key: string, setter: (value: string) => void) => {
@@ -608,37 +530,23 @@ const MapboxRoutePlanner: React.FC = () => {
 
   const handleInputFocus = (key: string, currentValue: string) => {
     if (!currentValue.trim() && recentAddresses.length > 0) {
-      setSuggestions(prev => ({ 
-        ...prev, 
-        [key]: recentAddresses.map(addr => ({ place_name: addr, center: [0, 0] as LngLat }))
-      }));
+      setSuggestions(prev => ({ ...prev, [key]: recentAddresses.map(addr => ({ place_name: addr, center: [0, 0] as LngLat })) }));
       setShowSuggestions(prev => ({ ...prev, [key]: true }));
     }
   };
 
   const handleRowClick = (stop: OrderedStop) => {
     if (!mapRef.current) return;
-    
-    // Pan and zoom to marker
-    mapRef.current.flyTo({
-      center: [stop.lng, stop.lat],
-      zoom: 14,
-      duration: 1000
-    });
-    
-    // Find and pulse the marker
-    const marker = markersRef.current.find((m, i) => {
+    mapRef.current.flyTo({ center: [stop.lng, stop.lat], zoom: 14, duration: 1000 });
+    const marker = markersRef.current.find((m) => {
       const lngLat = m.getLngLat();
       return Math.abs(lngLat.lng - stop.lng) < 0.0001 && Math.abs(lngLat.lat - stop.lat) < 0.0001;
     });
-    
     if (marker) {
       const el = marker.getElement();
       el.style.transform = 'scale(1.3)';
       el.style.transition = 'transform 0.3s ease';
-      setTimeout(() => {
-        el.style.transform = 'scale(1)';
-      }, 300);
+      setTimeout(() => { el.style.transform = 'scale(1)'; }, 300);
     }
   };
 
@@ -648,9 +556,7 @@ const MapboxRoutePlanner: React.FC = () => {
       const { longitude, latitude } = pos.coords;
       setStart(`${latitude}, ${longitude}`);
       toast("Using current location as start (lat,lng)");
-    } catch (e) {
-      toast.error("Unable to access current location");
-    }
+    } catch (e) { toast.error("Unable to access current location"); }
   };
 
   const handleNewRoute = () => {
@@ -661,22 +567,13 @@ const MapboxRoutePlanner: React.FC = () => {
     setTotalsLive(null);
     setTotalsTypical(null);
     setRouteOptimized(false);
-    setShowDestinations(true);
-    setShowRouteOrder(false);
-    
-    // Clear map
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
-    
     const map = mapRef.current;
     if (map) {
       const source = map.getSource(routeSourceId.current);
-      if (source) {
-        map.removeLayer("route-line");
-        map.removeSource(routeSourceId.current);
-      }
+      if (source) { map.removeLayer("route-line"); map.removeSource(routeSourceId.current); }
     }
-    
     routeGeometry.current = null;
     setShowNewRouteDialog(false);
   };
@@ -685,27 +582,54 @@ const MapboxRoutePlanner: React.FC = () => {
     setTrafficOn(choice);
     localStorage.setItem('route-traffic-enabled', JSON.stringify(choice));
     setShowTrafficDialog(false);
-    // Re-trigger optimization
     setTimeout(() => optimizeRoute(), 100);
   };
 
-  // Helper function to get short label
   const shortLabel = (address: string) => {
     if (!address) return '';
     const parts = address.split(',');
     return parts[0].trim() || address;
   };
 
-  // Update theme change handler to use persistence refs
-  const handleThemeChange = (newTheme: string) => {
-    setCurrentTheme(newTheme);
-    
-    // The map will automatically re-add route and markers via the useEffect
-    // that listens to currentTheme changes and calls handleStyleLoad
+  const handleThemeChange = (newTheme: string) => { setCurrentTheme(newTheme); };
+
+  // Determine how many stops are filled
+  const filledStops = destinations.filter(d => d.trim()).length;
+  const canOptimize = start.trim() && filledStops >= 2;
+
+  // Sticky button state
+  const getStickyButtonConfig = () => {
+    if (loading) return { label: "Optimizing...", disabled: true, action: () => {} };
+    if (routeOptimized) return { label: "Recalculate route", disabled: false, action: optimizeRoute };
+    return {
+      label: `Find shortest route${filledStops >= 2 ? ` (${filledStops + 1} stops)` : ''}`,
+      disabled: !canOptimize,
+      action: optimizeRoute
+    };
+  };
+
+  const stickyBtn = getStickyButtonConfig();
+
+  /* ─── Autocomplete dropdown sub-component ─── */
+  const SuggestionsDropdown: React.FC<{ keyName: string; onSelect: (s: GeocodeResult) => void }> = ({ keyName, onSelect }) => {
+    if (!showSuggestions[keyName] || !suggestions[keyName] || suggestions[keyName].length === 0) return null;
+    return (
+      <div className="absolute top-full left-0 right-0 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
+        {suggestions[keyName].map((suggestion, j) => (
+          <button
+            key={j}
+            className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-b-0"
+            onClick={() => onSelect(suggestion)}
+          >
+            {suggestion.place_name}
+          </button>
+        ))}
+      </div>
+    );
   };
 
   return (
-    <section className={`w-full ${ordered ? 'pb-[calc(88px+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}>
+    <section className="w-full pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-0">
       {/* App Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-baseline gap-3">
@@ -718,6 +642,7 @@ const MapboxRoutePlanner: React.FC = () => {
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Left Column */}
         <div className="lg:col-span-2 space-y-4">
 
           {/* Card A - Start */}
@@ -736,19 +661,7 @@ const MapboxRoutePlanner: React.FC = () => {
                     onBlur={() => setTimeout(() => setShowSuggestions(prev => ({ ...prev, start: false })), 150)}
                     className="min-h-[44px]"
                   />
-                  {showSuggestions.start && suggestions.start && suggestions.start.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
-                      {suggestions.start.map((suggestion, i) => (
-                        <button
-                          key={i}
-                          className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-b-0"
-                          onClick={() => handleSuggestionSelect(suggestion, 'start', setStart)}
-                        >
-                          {suggestion.place_name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <SuggestionsDropdown keyName="start" onSelect={(s) => handleSuggestionSelect(s, 'start', setStart)} />
                 </div>
                 <Button type="button" variant="outline" onClick={setMyLocationAsStart} className="min-h-[44px] text-xs px-3">
                   Use my location
@@ -762,9 +675,7 @@ const MapboxRoutePlanner: React.FC = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Stops (2–9)</CardTitle>
-                <span className="text-sm text-muted-foreground">
-                  {destinations.filter(d => d.trim()).length}/9
-                </span>
+                <span className="text-sm text-muted-foreground">{filledStops}/9</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -780,42 +691,23 @@ const MapboxRoutePlanner: React.FC = () => {
                           newDests[i] = e.target.value;
                           setDestinations(newDests);
                           handleInputChange(e.target.value, `dest-${i}`, (value) => {
-                            const newDests = [...destinations];
-                            newDests[i] = value;
-                            setDestinations(newDests);
+                            const nd = [...destinations]; nd[i] = value; setDestinations(nd);
                           });
                         }}
                         onFocus={() => handleInputFocus(`dest-${i}`, destination)}
                         onBlur={() => setTimeout(() => setShowSuggestions(prev => ({ ...prev, [`dest-${i}`]: false })), 150)}
                         className="min-h-[44px]"
                       />
-                      {showSuggestions[`dest-${i}`] && suggestions[`dest-${i}`] && suggestions[`dest-${i}`].length > 0 && (
-                        <div className="absolute top-full left-0 right-0 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
-                          {suggestions[`dest-${i}`].map((suggestion, j) => (
-                            <button
-                              key={j}
-                              className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-b-0"
-                              onClick={() => {
-                                const newDests = [...destinations];
-                                newDests[i] = suggestion.place_name;
-                                setDestinations(newDests);
-                                handleSuggestionSelect(suggestion, `dest-${i}`, () => {});
-                              }}
-                            >
-                              {suggestion.place_name}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      <SuggestionsDropdown
+                        keyName={`dest-${i}`}
+                        onSelect={(s) => {
+                          const newDests = [...destinations]; newDests[i] = s.place_name; setDestinations(newDests);
+                          handleSuggestionSelect(s, `dest-${i}`, () => {});
+                        }}
+                      />
                     </div>
                     {destinations.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeDestination(i)}
-                        className="min-h-[44px] px-3 text-xs"
-                      >
+                      <Button type="button" variant="outline" size="sm" onClick={() => removeDestination(i)} className="min-h-[44px] px-3 text-xs">
                         Remove
                       </Button>
                     )}
@@ -845,17 +737,12 @@ const MapboxRoutePlanner: React.FC = () => {
                   onCheckedChange={(checked) => {
                     setTrafficOn(checked);
                     localStorage.setItem('route-traffic-enabled', JSON.stringify(checked));
-                    
-                    // Re-draw route with new traffic setting if route exists
                     if (routeGeometry.current) {
-                      const route = routeGeometry.current;
-                      const congestionData = checked && ordered ? [] : undefined;
-                      drawRoute(route, congestionData);
+                      drawRoute(routeGeometry.current);
                     }
                   }}
                 />
               </div>
-              
               <div className="flex items-center justify-between">
                 <Label htmlFor="stabilize" className="text-sm">Stable results</Label>
                 <Switch
@@ -867,7 +754,6 @@ const MapboxRoutePlanner: React.FC = () => {
                   }}
                 />
               </div>
-              
               <div className="flex items-center justify-between">
                 <Label className="text-sm">Map Theme</Label>
                 <Select value={currentTheme} onValueChange={handleThemeChange}>
@@ -885,19 +771,15 @@ const MapboxRoutePlanner: React.FC = () => {
           </Card>
 
           {/* Desktop Optimize Button */}
-          <div className="hidden lg:block">
+          <div className="hidden lg:block space-y-2">
             <Button 
-              onClick={optimizeRoute} 
-              disabled={loading} 
+              onClick={stickyBtn.action} 
+              disabled={stickyBtn.disabled} 
               className="w-full min-h-[44px] btn-hero"
             >
-              {loading ? "Optimizing..." : routeOptimized ? "Recalculate route" : `Find shortest route${destinations.filter(d => d.trim()).length >= 2 ? ` (${destinations.filter(d => d.trim()).length + 1} stops)` : ''}`}
+              {stickyBtn.label}
             </Button>
-          </div>
-
-          {/* Desktop New Route Button */}
-          {routeOptimized && (
-            <div className="hidden lg:block">
+            {routeOptimized && (
               <AlertDialog open={showNewRouteDialog} onOpenChange={setShowNewRouteDialog}>
                 <AlertDialogTrigger asChild>
                   <Button variant="ghost" className="w-full">New route</Button>
@@ -915,35 +797,49 @@ const MapboxRoutePlanner: React.FC = () => {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Map Section */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 space-y-3">
           <div ref={mapContainer} className="w-full h-[420px] lg:h-[620px] rounded-lg shadow-[var(--shadow-elegant)]" />
+          
+          {/* Traffic Legend */}
+          {trafficOn && (
+            <div className="flex justify-center lg:justify-end">
+              <TrafficLegend />
+            </div>
+          )}
+
+          {/* New route link below map on desktop */}
+          {routeOptimized && (
+            <div className="hidden lg:flex justify-center">
+              <Button variant="ghost" size="sm" onClick={() => setShowNewRouteDialog(true)} className="text-sm text-muted-foreground">
+                New route
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Optimized Route Bottom Sheet Card */}
+      {/* ─── Optimized Route Card ─── */}
       {ordered && (
         <Card className="mt-6 shadow-[var(--shadow-elegant)]">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Optimized Route</CardTitle>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardTitle className="text-base font-semibold">Optimized Route</CardTitle>
+              <div className="flex items-center gap-3 flex-wrap">
                 {totalsLive && (
-                  <span>
-                    Live • {(toMinutes(totalsLive.duration_s)).toFixed(0)} min
-                    {totalsTypical && (
-                      <span className="ml-2">
-                        Typical • {(toMinutes(totalsTypical.duration_s)).toFixed(0)} min
-                      </span>
-                    )}
+                  <span className="text-sm text-muted-foreground">
+                    {units === 'metric'
+                      ? `${toKm(totalsLive.distance_m).toFixed(1)} km`
+                      : `${toMiles(totalsLive.distance_m).toFixed(1)} mi`
+                    } • {toMinutes(totalsLive.duration_s).toFixed(0)} min
                   </span>
                 )}
                 <Select value={units} onValueChange={(value) => setUnits(value as 'metric' | 'imperial')}>
-                  <SelectTrigger className="w-24 h-8">
+                  <SelectTrigger className="w-20 h-8">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -951,29 +847,38 @@ const MapboxRoutePlanner: React.FC = () => {
                     <SelectItem value="imperial">mi</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button size="sm" className="btn-hero h-8 px-4 text-xs" onClick={optimizeRoute} disabled={loading}>
+                  {loading ? "Optimizing..." : "Recalculate"}
+                </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <ul className="divide-y">
+          <CardContent className="space-y-0">
+            <ul className="divide-y divide-border">
               {ordered.map((stop, i) => (
                 <li 
                   key={i} 
-                  className="py-3 cursor-pointer hover:bg-muted/50 rounded-md px-2 transition-colors"
+                  className="py-4 cursor-pointer hover:bg-muted/50 rounded-md px-2 transition-colors"
                   onClick={() => handleRowClick(stop)}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-medium mt-0.5">
+                      <span
+                        className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-medium mt-0.5 ${
+                          stop.order === 0
+                            ? 'bg-[#7c3aed] text-white'
+                            : 'bg-[#06b6d4] text-white'
+                        }`}
+                      >
                         {stop.order === 0 ? 'S' : stop.order}
                       </span>
-                      <div>
-                        <div className="font-medium">{shortLabel(stop.label)}</div>
-                        <div className="text-sm text-muted-foreground mt-1">{stop.label}</div>
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground">{shortLabel(stop.label)}</div>
+                        <div className="text-sm text-muted-foreground mt-0.5 truncate">{stop.label}</div>
                       </div>
                     </div>
                     {stop.toNext && (
-                      <span className="text-xs px-2 py-1 rounded bg-muted whitespace-nowrap">
+                      <span className="text-xs px-2.5 py-1 rounded-md bg-muted text-muted-foreground whitespace-nowrap shrink-0">
                         {units === 'metric' 
                           ? `${toKm(stop.toNext.distance_m).toFixed(1)} km`
                           : `${toMiles(stop.toNext.distance_m).toFixed(1)} mi`
@@ -985,9 +890,13 @@ const MapboxRoutePlanner: React.FC = () => {
               ))}
             </ul>
 
-            {/* Footer Button */}
-            <div className="pt-3">
-              <Button className="w-full" onClick={() => window.open(buildGoogleMapsUrl(ordered), '_blank')}>
+            {/* Google Maps Button */}
+            <div className="pt-4">
+              <Button
+                className="w-full min-h-[48px] text-base font-medium"
+                style={{ background: 'linear-gradient(135deg, hsl(348, 83%, 47%), hsl(348, 83%, 40%))' }}
+                onClick={() => window.open(buildGoogleMapsUrl(ordered), '_blank')}
+              >
                 Google Maps
               </Button>
               <p className="mt-2 text-xs text-muted-foreground">
@@ -998,33 +907,23 @@ const MapboxRoutePlanner: React.FC = () => {
         </Card>
       )}
 
-      {/* Mobile sticky bottom bar */}
-      {(routeOptimized || (!routeOptimized && start.trim() && destinations.filter(d => d.trim()).length >= 2)) && (
-        <div className="fixed inset-x-0 bottom-0 z-40 bg-background/95 backdrop-blur border-t p-3 lg:hidden">
-          <div className="flex gap-2">
-            {routeOptimized && (
-              <Button variant="ghost" size="sm" onClick={() => setShowNewRouteDialog(true)} className="text-sm">
-                New route
-              </Button>
-            )}
-            <Button 
-              className="flex-1 min-h-[44px] btn-hero" 
-              onClick={routeOptimized ? () => window.open(buildGoogleMapsUrl(ordered!), '_blank') : optimizeRoute}
-              disabled={loading}
-            >
-              {loading ? "Optimizing..." : routeOptimized ? "Google Maps" : `Find shortest route${destinations.filter(d => d.trim()).length >= 2 ? ` (${destinations.filter(d => d.trim()).length + 1} stops)` : ''}`}
-            </Button>
-          </div>
+      {/* ─── Mobile Sticky Bottom Bar ─── */}
+      <div className="fixed inset-x-0 bottom-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border p-3 lg:hidden safe-bottom">
+        <div className="flex gap-2">
           {routeOptimized && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              We send your typed addresses; Google may adjust pins slightly to the nearest entrance.
-            </p>
+            <Button variant="ghost" size="sm" onClick={() => setShowNewRouteDialog(true)} className="text-sm shrink-0">
+              New route
+            </Button>
           )}
+          <Button 
+            className="flex-1 min-h-[44px] btn-hero" 
+            onClick={stickyBtn.action}
+            disabled={stickyBtn.disabled}
+          >
+            {stickyBtn.label}
+          </Button>
         </div>
-      )}
-
-      {/* Mobile spacer */}
-      {(routeOptimized || (!routeOptimized && start.trim() && destinations.filter(d => d.trim()).length >= 2)) && <div className="h-[calc(88px+env(safe-area-inset-bottom))] lg:hidden" />}
+      </div>
 
       {/* Traffic Dialog */}
       <AlertDialog open={showTrafficDialog} onOpenChange={setShowTrafficDialog}>
@@ -1042,46 +941,40 @@ const MapboxRoutePlanner: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* New Route Dialog (for mobile) */}
+      <AlertDialog open={showNewRouteDialog} onOpenChange={setShowNewRouteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Start a new route?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your current route data will be cleared and you'll start fresh.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleNewRoute}>Start New Route</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 };
 
-// Helper functions for export
-function downloadTxt(content: string, filename: string) {
-  const blob = new Blob([content], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); 
-  a.href = url; 
-  a.download = filename; 
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// Single-source for address-or-coord
+// Helper functions
 function addrOrCoord(s: OrderedStop) {
-  const label = (s.label || '').trim().replace(/\s+/g, ' '); // normalize spaces
+  const label = (s.label || '').trim().replace(/\s+/g, ' ');
   return label && !isCoordInput(label) ? label : `${s.lat},${s.lng}`;
 }
 
-// Build Google Maps Directions URL using EXACTLY ONE round of encoding
 function buildGoogleMapsUrl(stops: OrderedStop[]) {
   if (!stops?.length) return '';
-
   const origin = addrOrCoord(stops[0]);
   const destination = addrOrCoord(stops[stops.length - 1]);
   const waypointsStr = stops.slice(1, -1).map(addrOrCoord).join('|');
-
-  // Option A: rely on URLSearchParams (no pre-encoding)
-  const params = new URLSearchParams({
-    api: '1',
-    origin,            // <- raw string; URLSearchParams will encode exactly once
-    destination,
-    travelmode: 'driving'
-  });
+  const params = new URLSearchParams({ api: '1', origin, destination, travelmode: 'driving' });
   if (waypointsStr) params.set('waypoints', waypointsStr);
-
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
-
 
 export default MapboxRoutePlanner;
