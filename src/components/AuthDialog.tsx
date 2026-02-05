@@ -94,7 +94,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
             Welcome to ZipRoute
           </DialogTitle>
           <DialogDescription className="text-center text-muted-foreground">
-            Sign in to your account or create a new one to get started
+            Sign in with your username and password to get started
           </DialogDescription>
         </DialogHeader>
 
@@ -106,11 +106,11 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
 
           <TabsContent value="signin" className="space-y-4 mt-6">
             <div className="space-y-2">
-              <Label htmlFor="signin-email">Email</Label>
+              <Label htmlFor="signin-email">Username</Label>
               <Input
                 id="signin-email"
                 type="email"
-                placeholder="Enter your email"
+                placeholder="Enter your username (email)"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="border-border/40"
@@ -162,11 +162,11 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
 
           <TabsContent value="signup" className="space-y-4 mt-6">
             <div className="space-y-2">
-              <Label htmlFor="signup-email">Email</Label>
+              <Label htmlFor="signup-email">Username</Label>
               <Input
                 id="signup-email"
                 type="email"
-                placeholder="Enter your email"
+                placeholder="Enter your username (email)"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="border-border/40"
