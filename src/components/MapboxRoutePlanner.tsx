@@ -51,7 +51,7 @@ const geocode = async (query: string): Promise<GeocodeResult | null> => {
   }
   const encoded = encodeURIComponent(query.trim());
   const res = await fetch(
-    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?limit=1&country=us,ca&access_token=${getToken()}`
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?limit=1&access_token=${getToken()}`
   );
   if (!res.ok) return null;
   const data = await res.json();
@@ -65,7 +65,7 @@ const fetchSuggestions = async (query: string, proximity?: LngLat): Promise<Geoc
   const encoded = encodeURIComponent(query.trim());
   const proximityParam = proximity ? `&proximity=${proximity[0]},${proximity[1]}` : '';
   const res = await fetch(
-    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?autocomplete=true&limit=5&types=address,poi,place,locality,neighborhood&country=us,ca${proximityParam}&access_token=${getToken()}`
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?autocomplete=true&limit=5&types=address,poi,place,locality,neighborhood${proximityParam}&access_token=${getToken()}`
   );
   if (!res.ok) return [];
   const data = await res.json();
