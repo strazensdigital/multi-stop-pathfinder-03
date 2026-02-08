@@ -11,6 +11,14 @@ import { OrderedStop, formatArrowString, reverseGeocode, toKm, toMiles, toMinute
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/hooks/useAuth";
+import { useRoutes } from "@/hooks/useRoutes";
+import { Save, Loader2 } from "lucide-react";
+
+interface MapboxRoutePlannerProps {
+  routeToLoad?: any[] | null;
+  onRouteLoaded?: () => void;
+}
 
 // Public token can be safely used on the client. Users can override via localStorage key "MAPBOX_TOKEN".
 const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1Ijoia3VsbHVtdXV1IiwiYSI6ImNtZTZqb2d0ODEzajYybHB1Mm0xbzBva2YifQ.zDdnxTggkS-qfrNIoLJwTw";
@@ -164,7 +172,10 @@ const TrafficLegend: React.FC = () => (
   </div>
 );
 
-const MapboxRoutePlanner: React.FC = () => {
+const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, onRouteLoaded }) => {
+  const { user } = useAuth();
+  const { saveRoute } = useRoutes();
+  const [savingRoute, setSavingRoute] = useState(false);
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const routeSourceId = useRef<string>("optimized-route");
@@ -208,6 +219,29 @@ const MapboxRoutePlanner: React.FC = () => {
   });
 
   const canAddDestination = destinations.length < 9;
+
+  // Load route from saved routes
+  useEffect(() => {
+    if (routeToLoad && routeToLoad.length > 0) {
+      const stops = routeToLoad as any[];
+      if (stops.length >= 2) {
+        setStart(stops[0].label || "");
+        setDestinations(stops.slice(1).map((s: any) => s.label || ""));
+        setRouteOptimized(false);
+        setOrdered(null);
+        toast.success("Route loaded! Press 'Find shortest route' to optimize.");
+      }
+      onRouteLoaded?.();
+    }
+  }, [routeToLoad, onRouteLoaded]);
+
+  const handleSaveRoute = async () => {
+    if (!ordered || ordered.length === 0) return;
+    setSavingRoute(true);
+    const name = ordered.map((s) => s.label.split(",")[0].trim()).slice(0, 3).join(" → ");
+    await saveRoute(name, ordered);
+    setSavingRoute(false);
+  };
 
   const debouncedFetchSuggestions = useMemo(
     () => debounce(async (query: string, key: string) => {
@@ -890,8 +924,8 @@ const MapboxRoutePlanner: React.FC = () => {
               ))}
             </ul>
 
-            {/* Google Maps Button */}
-            <div className="pt-4">
+            {/* Action Buttons */}
+            <div className="pt-4 space-y-2">
               <Button
                 className="w-full min-h-[48px] text-base font-medium"
                 style={{ background: 'linear-gradient(135deg, hsl(348, 83%, 47%), hsl(348, 83%, 40%))' }}
@@ -899,7 +933,22 @@ const MapboxRoutePlanner: React.FC = () => {
               >
                 Google Maps
               </Button>
-              <p className="mt-2 text-xs text-muted-foreground">
+              {user && (
+                <Button
+                  variant="outline"
+                  className="w-full min-h-[44px] border-border/40"
+                  onClick={handleSaveRoute}
+                  disabled={savingRoute}
+                >
+                  {savingRoute ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  {savingRoute ? "Saving..." : "Save Route"}
+                </Button>
+              )}
+              <p className="mt-1 text-xs text-muted-foreground">
                 We send your typed addresses; Google may adjust pins to the nearest entrance.
               </p>
             </div>
