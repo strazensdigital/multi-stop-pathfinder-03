@@ -36,7 +36,7 @@ export async function reverseGeocode(lat: number, lng: number, token: string): P
     return reverseGeocodeCache.get(key)!;
   }
   
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(`${lng},${lat}`)}.json?limit=1&access_token=${token}`;
+  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(`${lng},${lat}`)}.json?limit=1&country=us,ca&access_token=${token}`;
   const res = await fetch(url);
   if (!res.ok) return null;
   const data = await res.json();
