@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
-import { Menu, X, MapPin, Trash2, Loader2, CreditCard, Crown } from "lucide-react";
+import { Menu, X, MapPin, Trash2, Loader2, CreditCard, Crown, Star, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AuthDialog } from "@/components/AuthDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoutes, SavedRoute } from "@/hooks/useRoutes";
+import { useBookmarks } from "@/hooks/useBookmarks";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 
 interface HamburgerMenuProps {
   onLoadRoute?: (stops: any[]) => void;
@@ -15,15 +17,20 @@ interface HamburgerMenuProps {
 export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+  const [addingBookmark, setAddingBookmark] = useState(false);
+  const [newNickname, setNewNickname] = useState("");
+  const [newAddress, setNewAddress] = useState("");
   const { user, profile, signOut } = useAuth();
   const { savedRoutes, loadingRoutes, fetchRoutes, deleteRoute } = useRoutes();
+  const { bookmarks, loadingBookmarks, fetchBookmarks, addBookmark, deleteBookmark } = useBookmarks();
   const { openPortal } = useSubscription();
 
   useEffect(() => {
     if (isSheetOpen && user) {
       fetchRoutes();
+      fetchBookmarks();
     }
-  }, [isSheetOpen, user, fetchRoutes]);
+  }, [isSheetOpen, user, fetchRoutes, fetchBookmarks]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -145,6 +152,95 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
                 <p className="text-xs text-muted-foreground text-center -mt-2">
                   Unlimited stops, unlimited optimizations, save routes
                 </p>
+              </>
+            )}
+
+            {/* Bookmarks Section */}
+            {user && (
+              <>
+                <Separator className="bg-border/40" />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-semibold text-foreground flex items-center gap-1.5">
+                      <Star className="h-4 w-4 text-yellow-500" /> Bookmarks
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      onClick={() => setAddingBookmark(!addingBookmark)}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+
+                  {addingBookmark && (
+                    <div className="space-y-2 p-3 rounded-lg border border-border/40 bg-muted/30">
+                      <Input
+                        placeholder="Nickname (e.g. Office)"
+                        value={newNickname}
+                        onChange={(e) => setNewNickname(e.target.value)}
+                        className="min-h-[44px]"
+                      />
+                      <Input
+                        placeholder="Full address"
+                        value={newAddress}
+                        onChange={(e) => setNewAddress(e.target.value)}
+                        className="min-h-[44px]"
+                      />
+                      <Button
+                        className="w-full min-h-[44px] btn-hero"
+                        disabled={!newNickname.trim() || !newAddress.trim()}
+                        onClick={async () => {
+                          const ok = await addBookmark(newNickname, newAddress);
+                          if (ok) {
+                            setNewNickname("");
+                            setNewAddress("");
+                            setAddingBookmark(false);
+                          }
+                        }}
+                      >
+                        Save Bookmark
+                      </Button>
+                    </div>
+                  )}
+
+                  {loadingBookmarks ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : bookmarks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No bookmarks yet. Save frequently-used addresses for quick access.
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {bookmarks.map((bm) => (
+                        <li
+                          key={bm.id}
+                          className="flex items-center justify-between gap-2 rounded-md border border-border/40 p-2.5 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate text-foreground flex items-center gap-1.5">
+                              <Star className="h-3 w-3 text-yellow-500 shrink-0" />
+                              {bm.nickname}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">{bm.address}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => deleteBookmark(bm.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </>
             )}
 
