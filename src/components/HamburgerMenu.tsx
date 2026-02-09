@@ -73,9 +73,10 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
         </SheetTrigger>
         <SheetContent 
           side="right" 
-          className="w-[85vw] max-w-80 bg-background/95 backdrop-blur-sm border-border/40 overflow-y-auto"
+          className="w-[85vw] max-w-80 bg-background/95 backdrop-blur-sm border-border/40 flex flex-col p-0"
         >
-          <div className="flex flex-col space-y-6 mt-8">
+          {/* Scrollable content area */}
+          <div className="flex-1 overflow-y-auto p-6 pt-10 space-y-6">
             {/* Account Section */}
             <div className="space-y-2">
               <h2 className="text-lg font-bold text-foreground">Account</h2>
@@ -103,60 +104,16 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
             {/* Usage Dashboard */}
             {user && <UsageDashboard />}
 
-            <div className="space-y-3">
-              {user ? (
-                <>
-                  {isPro && (
-                    <Button
-                      variant="outline"
-                      onClick={() => openPortal()}
-                      className="w-full justify-center font-normal border-border/40 hover:bg-muted min-h-[44px]"
-                    >
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      Manage Subscription
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    onClick={handleSignOut}
-                    className="w-full justify-center font-normal border-border/40 hover:bg-muted min-h-[44px]"
-                  >
-                    Sign Out
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsAuthDialogOpen(true);
-                    setIsSheetOpen(false);
-                  }}
-                  className="w-full justify-center font-normal border-border/40 hover:bg-muted min-h-[44px]"
-                >
-                  Log in / Sign up
-                </Button>
-              )}
-            </div>
-
-            {/* Upgrade to Pro Button — shown for non-Pro users */}
-            {!isPro && (
-              <>
-                <Separator className="bg-border/40" />
-                <Button
-                  onClick={handleUpgradeClick}
-                  className="w-full min-h-[52px] text-base font-bold rounded-xl shadow-lg"
-                  style={{
-                    background: 'linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent) / 0.8))',
-                    color: 'hsl(var(--accent-foreground))',
-                  }}
-                >
-                  <Crown className="mr-2 h-5 w-5" />
-                  Upgrade to Pro — $10/mo
-                </Button>
-                <p className="text-xs text-muted-foreground text-center -mt-2">
-                  Unlimited stops, unlimited optimizations, save routes
-                </p>
-              </>
+            {/* Manage Subscription — Pro only */}
+            {user && isPro && (
+              <Button
+                variant="outline"
+                onClick={() => openPortal()}
+                className="w-full justify-center font-normal border-border/40 hover:bg-muted min-h-[44px]"
+              >
+                <CreditCard className="mr-2 h-4 w-4" />
+                Manage Subscription
+              </Button>
             )}
 
             {/* Bookmarks Section — Pro only */}
@@ -309,6 +266,43 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
                   )}
                 </div>
               </>
+            )}
+          </div>
+
+          {/* Sticky bottom buttons */}
+          <div className="shrink-0 border-t border-border/40 bg-background/95 backdrop-blur-sm p-4 space-y-2">
+            {!isPro && (
+              <Button
+                onClick={handleUpgradeClick}
+                className="w-full min-h-[44px] text-sm font-bold rounded-xl shadow-md"
+                style={{
+                  background: 'linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent) / 0.8))',
+                  color: 'hsl(var(--accent-foreground))',
+                }}
+              >
+                <Crown className="mr-2 h-4 w-4" />
+                Upgrade to Pro — $10/mo
+              </Button>
+            )}
+            {user ? (
+              <Button
+                variant="outline"
+                onClick={handleSignOut}
+                className="w-full justify-center font-normal border-border/40 hover:bg-muted min-h-[44px]"
+              >
+                Sign Out
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsAuthDialogOpen(true);
+                  setIsSheetOpen(false);
+                }}
+                className="w-full justify-center font-normal border-border/40 hover:bg-muted min-h-[44px]"
+              >
+                Log in / Sign up
+              </Button>
             )}
           </div>
         </SheetContent>

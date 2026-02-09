@@ -9,9 +9,10 @@ interface UsageStats {
   estimatedMinutesSaved: number;
 }
 
-// Educated guess: manual multi-stop routing takes ~2 min per stop
-// (comparing options, reordering, checking maps). Our optimizer does it instantly.
-const MINUTES_SAVED_PER_STOP = 2;
+// Time saved scales super-linearly with stops: manually optimizing
+// route order gets exponentially harder as stops increase.
+// Formula: 0.5 × stops^1.5 minutes per optimization.
+const timeSavedForStops = (stops: number) => 0.5 * Math.pow(stops, 1.5);
 
 export function UsageDashboard() {
   const { user } = useAuth();
@@ -29,12 +30,14 @@ export function UsageDashboard() {
       if (error || !data) return;
 
       const totalOptimizations = data.length;
-      const totalStops = data.reduce((sum, row) => {
+      let totalStops = 0;
+      let estimatedMinutesSaved = 0;
+      for (const row of data) {
         const stops = (row.meta as any)?.stops ?? 3;
-        return sum + stops;
-      }, 0);
+        totalStops += stops;
+        estimatedMinutesSaved += timeSavedForStops(stops);
+      }
       const avgStops = totalOptimizations > 0 ? totalStops / totalOptimizations : 0;
-      const estimatedMinutesSaved = totalStops * MINUTES_SAVED_PER_STOP;
 
       setStats({ totalOptimizations, avgStops, estimatedMinutesSaved });
     })();
