@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Crown, Zap } from "lucide-react";
+import { Check, Crown, Zap, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useSubscription, STRIPE_PRICES } from "@/hooks/useSubscription";
 
 interface PricingModalProps {
   onClose: () => void;
@@ -10,6 +12,22 @@ interface PricingModalProps {
 }
 
 const PricingModal: React.FC<PricingModalProps> = ({ onClose, onGetStarted }) => {
+  const { user, profile } = useAuth();
+  const { startCheckout, openPortal } = useSubscription();
+  const [checkingOut, setCheckingOut] = useState<string | null>(null);
+
+  const isPro = profile?.plan === "pro";
+
+  const handleCheckout = async (priceId: string) => {
+    if (!user) {
+      onGetStarted(); // opens auth dialog
+      return;
+    }
+    setCheckingOut(priceId);
+    await startCheckout(priceId);
+    setCheckingOut(null);
+  };
+
   return (
     <div className="space-y-6 py-4 max-h-[80vh] overflow-y-auto">
       <div className="text-center">
@@ -30,36 +48,30 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onGetStarted }) =>
               <span className="text-muted-foreground"> / forever</span>
             </div>
             <ul className="space-y-3 mb-6">
-              <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
-                <span className="text-sm">Up to 9 stops per route</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
-                <span className="text-sm">Fast route optimization (Mapbox)</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
-                <span className="text-sm">Export directions to your maps app</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
-                <span className="text-sm">Email verification required after 1–2 uses</span>
-              </li>
+              {["Up to 9 stops per route", "Fast route optimization (Mapbox)", "Export directions to your maps app", "Email verification required after 1–2 uses"].map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
+                  <span className="text-sm">{item}</span>
+                </li>
+              ))}
             </ul>
             <Button onClick={onGetStarted} className="w-full" variant="outline">
-              Start Free
+              {user ? (isPro ? "Current fallback" : "Your Plan") : "Start Free"}
             </Button>
           </CardContent>
         </Card>
 
         {/* Pro Plan */}
-        <Card className="relative p-6 border-2 border-accent">
+        <Card className={`relative p-6 border-2 ${isPro ? "border-primary" : "border-accent"}`}>
           <CardContent className="p-0">
             <div className="flex items-center gap-2 mb-4">
               <Crown className="w-5 h-5 text-accent" />
               <h3 className="text-xl font-bold">Pro</h3>
-              <Badge className="bg-accent text-accent-foreground text-xs">Popular</Badge>
+              {isPro ? (
+                <Badge className="bg-primary text-primary-foreground text-xs">Your Plan</Badge>
+              ) : (
+                <Badge className="bg-accent text-accent-foreground text-xs">Popular</Badge>
+              )}
             </div>
             <div className="mb-4">
               <span className="text-3xl font-bold">$10</span>
@@ -67,26 +79,38 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onGetStarted }) =>
               <div className="text-sm text-muted-foreground">or $69 / year (save ~40%)</div>
             </div>
             <ul className="space-y-3 mb-6">
-              <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
-                <span className="text-sm">Unlimited stops</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
-                <span className="text-sm">Lock a specific stop (e.g., fixed final destination)</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
-                <span className="text-sm">Priority email support</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
-                <span className="text-sm">Early access to AI address import (beta)</span>
-              </li>
+              {["Unlimited stops", "Lock a specific stop (e.g., fixed final destination)", "Priority email support", "Early access to AI address import (beta)"].map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
+                  <span className="text-sm">{item}</span>
+                </li>
+              ))}
             </ul>
-            <Button className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              Upgrade to Pro
-            </Button>
+            {isPro ? (
+              <Button className="w-full" variant="outline" onClick={() => openPortal()}>
+                Manage Subscription
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <Button
+                  className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
+                  onClick={() => handleCheckout(STRIPE_PRICES.pro_monthly)}
+                  disabled={!!checkingOut}
+                >
+                  {checkingOut === STRIPE_PRICES.pro_monthly && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  $10 / month
+                </Button>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => handleCheckout(STRIPE_PRICES.pro_yearly)}
+                  disabled={!!checkingOut}
+                >
+                  {checkingOut === STRIPE_PRICES.pro_yearly && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  $69 / year (save 40%)
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -102,22 +126,12 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onGetStarted }) =>
               <span className="text-3xl font-bold text-muted-foreground">Custom</span>
             </div>
             <ul className="space-y-3 mb-6">
-              <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
-                <span className="text-sm text-muted-foreground">Team seats & shared routes</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
-                <span className="text-sm text-muted-foreground">Bulk CSV import</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
-                <span className="text-sm text-muted-foreground">API & webhooks</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
-                <span className="text-sm text-muted-foreground">White-label options</span>
-              </li>
+              {["Team seats & shared routes", "Bulk CSV import", "API & webhooks", "White-label options"].map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground">{item}</span>
+                </li>
+              ))}
             </ul>
             <Button variant="outline" className="w-full" disabled>
               Join Waitlist
@@ -128,10 +142,6 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onGetStarted }) =>
 
       <div className="text-xs text-center text-muted-foreground border-t pt-4">
         <p>Prices in USD. Taxes may apply. Subscriptions renew automatically; you can cancel anytime in your account.</p>
-        <div className="flex justify-center gap-4 mt-2">
-          <button className="underline hover:text-accent transition-colors">Terms of Service</button>
-          <button className="underline hover:text-accent transition-colors">Refunds</button>
-        </div>
       </div>
     </div>
   );
