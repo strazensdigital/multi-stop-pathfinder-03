@@ -9,6 +9,7 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { UsageDashboard } from "@/components/UsageDashboard";
 
 interface HamburgerMenuProps {
   onLoadRoute?: (stops: any[]) => void;
@@ -98,6 +99,9 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
                 </>
               )}
             </div>
+
+            {/* Usage Dashboard */}
+            {user && <UsageDashboard />}
 
             <div className="space-y-3">
               {user ? (

@@ -11,6 +11,7 @@ import { OrderedStop, formatArrowString, reverseGeocode, toKm, toMiles, toMinute
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoutes } from "@/hooks/useRoutes";
 import { useUsageGate } from "@/hooks/useUsageGate";
@@ -544,6 +545,15 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
       fitToBounds(route.coordinates as LngLat[]);
       setRouteOptimized(true);
       recordUsage();
+
+      // Record usage event for logged-in users
+      if (user) {
+        supabase.from("usage_events").insert({
+          user_id: user.id,
+          event_type: "optimize",
+          meta: { stops: orderedStops.length } as any,
+        }).then(() => {});
+      }
 
       setTimeout(() => {
         mapContainer.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
