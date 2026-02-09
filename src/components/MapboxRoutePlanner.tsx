@@ -746,8 +746,17 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-4">
 
-          {/* AI Paste Box */}
-          <AiPasteBox bookmarks={bookmarks} onAddressesExtracted={handleAiExtracted} />
+          {/* AI Paste Box - Pro only */}
+          {isPro ? (
+            <AiPasteBox bookmarks={bookmarks} onAddressesExtracted={handleAiExtracted} />
+          ) : (
+            <div className="relative">
+              <div className="opacity-50 pointer-events-none">
+                <AiPasteBox bookmarks={bookmarks} onAddressesExtracted={handleAiExtracted} />
+              </div>
+              <span className="absolute top-1/2 right-3 -translate-y-1/2 text-[10px] font-bold bg-accent/20 text-accent px-1.5 py-0.5 rounded">PRO</span>
+            </div>
+          )}
 
           {/* Card A - Start */}
           <Card className="shadow-[var(--shadow-elegant)] border-l-2 border-l-accent/30">
