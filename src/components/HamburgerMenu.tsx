@@ -155,90 +155,101 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
               </>
             )}
 
-            {/* Bookmarks Section */}
+            {/* Bookmarks Section — Pro only */}
             {user && (
               <>
                 <Separator className="bg-border/40" />
-                <div className="space-y-3">
+                <div className={`space-y-3 ${!isPro ? 'opacity-50 pointer-events-none select-none' : ''}`}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-base font-semibold text-foreground flex items-center gap-1.5">
                       <Star className="h-4 w-4 text-yellow-500" /> Bookmarks
+                      {!isPro && <span className="ml-1.5 text-xs font-semibold bg-accent/20 text-accent px-1.5 py-0.5 rounded">PRO</span>}
                     </h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-xs"
-                      onClick={() => setAddingBookmark(!addingBookmark)}
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Add
-                    </Button>
+                    {isPro && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-xs"
+                        onClick={() => setAddingBookmark(!addingBookmark)}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Add
+                      </Button>
+                    )}
                   </div>
 
-                  {addingBookmark && (
-                    <div className="space-y-2 p-3 rounded-lg border border-border/40 bg-muted/30">
-                      <Input
-                        placeholder="Nickname (e.g. Office)"
-                        value={newNickname}
-                        onChange={(e) => setNewNickname(e.target.value)}
-                        className="min-h-[44px]"
-                      />
-                      <Input
-                        placeholder="Full address"
-                        value={newAddress}
-                        onChange={(e) => setNewAddress(e.target.value)}
-                        className="min-h-[44px]"
-                      />
-                      <Button
-                        className="w-full min-h-[44px] btn-hero"
-                        disabled={!newNickname.trim() || !newAddress.trim()}
-                        onClick={async () => {
-                          const ok = await addBookmark(newNickname, newAddress);
-                          if (ok) {
-                            setNewNickname("");
-                            setNewAddress("");
-                            setAddingBookmark(false);
-                          }
-                        }}
-                      >
-                        Save Bookmark
-                      </Button>
-                    </div>
-                  )}
-
-                  {loadingBookmarks ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : bookmarks.length === 0 ? (
+                  {!isPro ? (
                     <p className="text-sm text-muted-foreground">
-                      No bookmarks yet. Save frequently-used addresses for quick access.
+                      Save frequently-used addresses for quick access. Upgrade to Pro to unlock bookmarks.
                     </p>
                   ) : (
-                    <ul className="space-y-2">
-                      {bookmarks.map((bm) => (
-                        <li
-                          key={bm.id}
-                          className="flex items-center justify-between gap-2 rounded-md border border-border/40 p-2.5 hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate text-foreground flex items-center gap-1.5">
-                              <Star className="h-3 w-3 text-yellow-500 shrink-0" />
-                              {bm.nickname}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">{bm.address}</p>
-                          </div>
+                    <>
+                      {addingBookmark && (
+                        <div className="space-y-2 p-3 rounded-lg border border-border/40 bg-muted/30">
+                          <Input
+                            placeholder="Nickname (e.g. Office)"
+                            value={newNickname}
+                            onChange={(e) => setNewNickname(e.target.value)}
+                            className="min-h-[44px]"
+                          />
+                          <Input
+                            placeholder="Full address"
+                            value={newAddress}
+                            onChange={(e) => setNewAddress(e.target.value)}
+                            className="min-h-[44px]"
+                          />
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
-                            onClick={() => deleteBookmark(bm.id)}
+                            className="w-full min-h-[44px] btn-hero"
+                            disabled={!newNickname.trim() || !newAddress.trim()}
+                            onClick={async () => {
+                              const ok = await addBookmark(newNickname, newAddress);
+                              if (ok) {
+                                setNewNickname("");
+                                setNewAddress("");
+                                setAddingBookmark(false);
+                              }
+                            }}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            Save Bookmark
                           </Button>
-                        </li>
-                      ))}
-                    </ul>
+                        </div>
+                      )}
+
+                      {loadingBookmarks ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : bookmarks.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No bookmarks yet. Save frequently-used addresses for quick access.
+                        </p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {bookmarks.map((bm) => (
+                            <li
+                              key={bm.id}
+                              className="flex items-center justify-between gap-2 rounded-md border border-border/40 p-2.5 hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium truncate text-foreground flex items-center gap-1.5">
+                                  <Star className="h-3 w-3 text-yellow-500 shrink-0" />
+                                  {bm.nickname}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">{bm.address}</p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
+                                onClick={() => deleteBookmark(bm.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
                   )}
                 </div>
               </>
