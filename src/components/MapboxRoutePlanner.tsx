@@ -176,7 +176,7 @@ const TrafficLegend: React.FC = () => (
 
 const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, onRouteLoaded }) => {
   const { user } = useAuth();
-  const { saveRoute } = useRoutes();
+  const { saveRoute, savedRoutes, fetchRoutes } = useRoutes();
   const { locked, isPro, maxStops, checkUsage, recordUsage, remainingUses, MAX_FREE_USES } = useUsageGate();
   const { bookmarks, matchBookmarks, addBookmark } = useBookmarks();
   const [showUpgradeNudge, setShowUpgradeNudge] = useState(false);
@@ -224,6 +224,11 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
   });
 
   const canAddDestination = destinations.length < maxStops;
+
+  // Fetch saved routes count for save-gate
+  useEffect(() => {
+    if (user) fetchRoutes();
+  }, [user, fetchRoutes]);
 
   // Load route from saved routes
   useEffect(() => {
@@ -668,8 +673,8 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
 
   /* ─── Autocomplete dropdown sub-component ─── */
   const SuggestionsDropdown: React.FC<{ keyName: string; onSelect: (s: GeocodeResult) => void; currentValue?: string }> = ({ keyName, onSelect, currentValue }) => {
-    // Merge bookmark matches at the top
-    const bookmarkMatches = currentValue ? matchBookmarks(currentValue) : [];
+    // Merge bookmark matches at the top (Pro only)
+    const bookmarkMatches = isPro && currentValue ? matchBookmarks(currentValue) : [];
     const geoSuggestions = suggestions[keyName] || [];
     const hasBookmarks = bookmarkMatches.length > 0;
     const hasGeo = geoSuggestions.length > 0;
@@ -989,21 +994,27 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
                   </Button>
                 );
               })()}
-              {user && (
-                <Button
-                  variant="outline"
-                  className="w-full min-h-[44px] border-border/40"
-                  onClick={handleSaveRoute}
-                  disabled={savingRoute}
-                >
-                  {savingRoute ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
-                  {savingRoute ? "Saving..." : "Save Route"}
-                </Button>
-              )}
+              {user && (() => {
+                const canSave = isPro || savedRoutes.length < 1;
+                return (
+                  <Button
+                    variant="outline"
+                    className={`w-full min-h-[44px] border-border/40 ${!canSave ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={canSave ? handleSaveRoute : undefined}
+                    disabled={savingRoute || !canSave}
+                  >
+                    {savingRoute ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    {savingRoute ? "Saving..." : canSave ? "Save Route" : "Save Route"}
+                    {!canSave && (
+                      <span className="ml-2 text-xs font-semibold bg-accent/20 text-accent px-1.5 py-0.5 rounded">PRO</span>
+                    )}
+                  </Button>
+                );
+              })()}
               <p className="mt-1 text-xs text-muted-foreground">
                 We send your typed addresses; Google may adjust pins to the nearest entrance.
               </p>
