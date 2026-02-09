@@ -10,7 +10,7 @@ const TermsModal: React.FC<TermsModalProps> = ({ onClose }) => {
       <div className="text-center">
         <h2 className="text-3xl font-bold text-foreground mb-2">Terms of Service</h2>
         <p className="text-sm text-muted-foreground italic">
-          Template—review with counsel.
+          Last updated: February 2025
         </p>
       </div>
 
@@ -81,7 +81,7 @@ const TermsModal: React.FC<TermsModalProps> = ({ onClose }) => {
         <section>
           <h3 className="text-lg font-semibold mb-2 text-accent">Contact</h3>
           <p className="text-muted-foreground">
-            legal@yourdomain.com
+            legal@ziproute.app
           </p>
         </section>
       </div>

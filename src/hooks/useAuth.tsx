@@ -6,6 +6,7 @@ interface UserProfile {
   id: string;
   email: string | null;
   plan: string | null;
+  display_name: string | null;
 }
 
 interface AuthContextType {
@@ -14,7 +15,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   refreshProfile: () => void;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -28,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = useCallback((userId: string) => {
     supabase
       .from("profiles")
-      .select("id, email, plan")
+      .select("id, email, plan, display_name")
       .eq("id", userId)
       .single()
       .then(({ data }) => {
@@ -94,13 +95,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, displayName?: string) => {
     const redirectUrl = `${window.location.origin}/`;
-    const { error } = await supabase.auth.signUp({
+    const { error, data } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: redirectUrl },
     });
+    // Write display_name to profiles if provided
+    if (!error && data?.user && displayName?.trim()) {
+      await supabase.from("profiles").update({ display_name: displayName.trim() }).eq("id", data.user.id);
+    }
     return { error };
   };
 
