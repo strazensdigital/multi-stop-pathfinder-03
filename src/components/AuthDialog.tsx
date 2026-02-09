@@ -27,6 +27,7 @@ interface AuthDialogProps {
 export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -36,6 +37,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
   const resetForm = () => {
     setEmail("");
     setPassword("");
+    setDisplayName("");
     setError("");
     setShowPassword(false);
     setRegistrationSuccess(false);
@@ -94,7 +96,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     setError("");
 
     try {
-      const { error: signUpError } = await signUp(email, password);
+      const { error: signUpError } = await signUp(email, password, displayName);
       if (signUpError) {
         setError(friendlyError(signUpError.message || "Registration failed"));
       } else {
@@ -205,6 +207,19 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
               </div>
             ) : (
               <>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">Display Name (optional)</Label>
+                  <Input
+                    id="signup-name"
+                    type="text"
+                    placeholder="What should we call you?"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, handleSignUp)}
+                    className="border-border/40"
+                    maxLength={50}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Username</Label>
                   <Input

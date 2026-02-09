@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, X, MapPin, Trash2, Loader2, CreditCard } from "lucide-react";
+import { Menu, X, MapPin, Trash2, Loader2, CreditCard, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AuthDialog } from "@/components/AuthDialog";
@@ -37,7 +37,19 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
     }
   };
 
-  const planLabel = profile?.plan === "pro" ? "Pro" : "Free";
+  const isPro = profile?.plan === "pro";
+  const planLabel = isPro ? "Pro" : "Free";
+  const greeting = profile?.display_name || user?.email?.split("@")[0] || null;
+
+  const handleUpgradeClick = () => {
+    if (!user) {
+      setIsAuthDialogOpen(true);
+      setIsSheetOpen(false);
+    } else {
+      window.dispatchEvent(new CustomEvent('open-modal', { detail: 'pricing' }));
+      setIsSheetOpen(false);
+    }
+  };
 
   return (
     <>
@@ -46,23 +58,30 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
           <Button
             variant="outline"
             size="icon"
-            className="bg-background/95 backdrop-blur-sm border-border/40 hover:bg-muted"
+            className="bg-background/95 backdrop-blur-sm border-border/40 hover:bg-muted min-h-[44px] min-w-[44px]"
           >
             {isSheetOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </Button>
         </SheetTrigger>
         <SheetContent 
           side="right" 
-          className="w-80 bg-background/95 backdrop-blur-sm border-border/40 overflow-y-auto"
+          className="w-[85vw] max-w-80 bg-background/95 backdrop-blur-sm border-border/40 overflow-y-auto"
         >
           <div className="flex flex-col space-y-6 mt-8">
             {/* Account Section */}
             <div className="space-y-2">
               <h2 className="text-lg font-bold text-foreground">Account</h2>
               {user ? (
-                <p className="text-sm text-muted-foreground">
-                  {user.email} · Plan: {planLabel}
-                </p>
+                <div className="space-y-1">
+                  {greeting && (
+                    <p className="text-base font-semibold text-foreground">
+                      Hi, {greeting}! 👋
+                    </p>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {user.email} · Plan: {planLabel}
+                  </p>
+                </div>
               ) : (
                 <>
                   <p className="text-sm text-muted-foreground">Guest · Plan: Free</p>
@@ -76,11 +95,11 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
             <div className="space-y-3">
               {user ? (
                 <>
-                  {profile?.plan === "pro" && (
+                  {isPro && (
                     <Button
                       variant="outline"
                       onClick={() => openPortal()}
-                      className="w-full justify-center font-normal border-border/40 hover:bg-muted"
+                      className="w-full justify-center font-normal border-border/40 hover:bg-muted min-h-[44px]"
                     >
                       <CreditCard className="mr-2 h-4 w-4" />
                       Manage Subscription
@@ -89,7 +108,7 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
                   <Button
                     variant="outline"
                     onClick={handleSignOut}
-                    className="w-full justify-center font-normal border-border/40 hover:bg-muted"
+                    className="w-full justify-center font-normal border-border/40 hover:bg-muted min-h-[44px]"
                   >
                     Sign Out
                   </Button>
@@ -101,12 +120,33 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
                     setIsAuthDialogOpen(true);
                     setIsSheetOpen(false);
                   }}
-                  className="w-full justify-center font-normal border-border/40 hover:bg-muted"
+                  className="w-full justify-center font-normal border-border/40 hover:bg-muted min-h-[44px]"
                 >
                   Log in / Sign up
                 </Button>
               )}
             </div>
+
+            {/* Upgrade to Pro Button — shown for non-Pro users */}
+            {!isPro && (
+              <>
+                <Separator className="bg-border/40" />
+                <Button
+                  onClick={handleUpgradeClick}
+                  className="w-full min-h-[52px] text-base font-bold rounded-xl shadow-lg"
+                  style={{
+                    background: 'linear-gradient(135deg, hsl(var(--accent)), hsl(var(--accent) / 0.8))',
+                    color: 'hsl(var(--accent-foreground))',
+                  }}
+                >
+                  <Crown className="mr-2 h-5 w-5" />
+                  Upgrade to Pro — $10/mo
+                </Button>
+                <p className="text-xs text-muted-foreground text-center -mt-2">
+                  Unlimited stops, unlimited optimizations, save routes
+                </p>
+              </>
+            )}
 
             {/* My Routes Section */}
             {user && (
@@ -130,7 +170,7 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
                           className="flex items-center justify-between gap-2 rounded-md border border-border/40 p-2.5 hover:bg-muted/50 transition-colors"
                         >
                           <button
-                            className="flex items-start gap-2 flex-1 text-left min-w-0"
+                            className="flex items-start gap-2 flex-1 text-left min-w-0 min-h-[44px]"
                             onClick={() => handleLoadRoute(route)}
                           >
                             <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-accent" />
@@ -147,7 +187,7 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                            className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
                             onClick={() => deleteRoute(route.id)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />

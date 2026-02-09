@@ -946,13 +946,26 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
 
             {/* Action Buttons */}
             <div className="pt-4 space-y-2">
-              <Button
-                className="w-full min-h-[48px] text-base font-medium"
-                style={{ background: 'linear-gradient(135deg, hsl(348, 83%, 47%), hsl(348, 83%, 40%))' }}
-                onClick={() => window.open(buildGoogleMapsUrl(ordered), '_blank')}
-              >
-                Google Maps
-              </Button>
+              {(() => {
+                const urls = buildGoogleMapsUrls(ordered);
+                const isMultiLeg = urls.length > 1;
+                return (
+                  <Button
+                    className="w-full min-h-[48px] text-base font-medium"
+                    style={{ background: 'linear-gradient(135deg, hsl(348, 83%, 47%), hsl(348, 83%, 40%))' }}
+                    onClick={() => {
+                      urls.forEach((url, i) => {
+                        setTimeout(() => window.open(url, '_blank'), i * 300);
+                      });
+                      if (isMultiLeg) {
+                        toast.info(`Route split into ${urls.length} legs (Google Maps limits waypoints to 9). Check your browser tabs!`);
+                      }
+                    }}
+                  >
+                    {isMultiLeg ? `Google Maps (${urls.length} legs)` : 'Google Maps'}
+                  </Button>
+                );
+              })()}
               {user && (
                 <Button
                   variant="outline"
@@ -1067,7 +1080,28 @@ function addrOrCoord(s: OrderedStop) {
   return label && !isCoordInput(label) ? label : `${s.lat},${s.lng}`;
 }
 
-function buildGoogleMapsUrl(stops: OrderedStop[]) {
+function buildGoogleMapsUrls(stops: OrderedStop[]): string[] {
+  if (!stops?.length) return [''];
+  // Google Maps supports origin + up to 9 waypoints + destination = 11 stops max per URL
+  const MAX_STOPS_PER_LEG = 11;
+  
+  if (stops.length <= MAX_STOPS_PER_LEG) {
+    return [buildSingleGoogleMapsUrl(stops)];
+  }
+
+  // Split into overlapping chunks
+  const urls: string[] = [];
+  let i = 0;
+  while (i < stops.length - 1) {
+    const end = Math.min(i + MAX_STOPS_PER_LEG, stops.length);
+    const chunk = stops.slice(i, end);
+    urls.push(buildSingleGoogleMapsUrl(chunk));
+    i = end - 1; // overlap: last stop of this leg = first stop of next
+  }
+  return urls;
+}
+
+function buildSingleGoogleMapsUrl(stops: OrderedStop[]) {
   if (!stops?.length) return '';
   const origin = addrOrCoord(stops[0]);
   const destination = addrOrCoord(stops[stops.length - 1]);
