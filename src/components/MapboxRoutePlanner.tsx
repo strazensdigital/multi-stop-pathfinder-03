@@ -256,9 +256,10 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
   };
 
   const handleAiExtracted = (startAddr: string, dests: string[]) => {
-    if (startAddr) setStart(startAddr);
-    const needed = Math.max(dests.length, 2);
-    const newDests = Array.from({ length: Math.min(needed, maxStops) }, (_, i) => dests[i] || "");
+    // Put all extracted addresses into stops (not start)
+    const allAddresses = startAddr ? [startAddr, ...dests] : dests;
+    const needed = Math.max(allAddresses.length, 2);
+    const newDests = Array.from({ length: Math.min(needed, maxStops) }, (_, i) => allAddresses[i] || "");
     setDestinations(newDests);
     setRouteOptimized(false);
     setOrdered(null);
