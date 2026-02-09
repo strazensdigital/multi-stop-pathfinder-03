@@ -13,7 +13,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoutes } from "@/hooks/useRoutes";
-import { Save, Loader2 } from "lucide-react";
+import { useUsageGate } from "@/hooks/useUsageGate";
+import { Save, Loader2, Lock } from "lucide-react";
 
 interface MapboxRoutePlannerProps {
   routeToLoad?: any[] | null;
@@ -175,6 +176,8 @@ const TrafficLegend: React.FC = () => (
 const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, onRouteLoaded }) => {
   const { user } = useAuth();
   const { saveRoute } = useRoutes();
+  const { locked, isPro, maxStops, checkUsage, recordUsage, remainingUses, MAX_FREE_USES } = useUsageGate();
+  const [showUpgradeNudge, setShowUpgradeNudge] = useState(false);
   const [savingRoute, setSavingRoute] = useState(false);
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -218,7 +221,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     return saved ? JSON.parse(saved) : [];
   });
 
-  const canAddDestination = destinations.length < 9;
+  const canAddDestination = destinations.length < maxStops;
 
   // Load route from saved routes
   useEffect(() => {
@@ -399,11 +402,25 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
       return;
     }
 
+    // Usage gate check
+    if (!isPro) {
+      const { allowed, showNudge } = checkUsage();
+      if (!allowed) {
+        toast.error("You've reached your daily limit of 5 free optimizations. Upgrade to Pro for unlimited access!");
+        setShowUpgradeNudge(true);
+        return;
+      }
+      if (showNudge) {
+        setShowUpgradeNudge(true);
+      }
+    }
+
     setLoading(true);
     try {
       const filtered = destinations.map((d) => d.trim()).filter(Boolean);
       if (!start.trim()) { toast.error("Please enter a starting point."); return; }
-      if (filtered.length < 2) { toast.error("Add at least 2 destinations (max 9)."); return; }
+      if (filtered.length < 2) { toast.error("Add at least 2 destinations."); return; }
+      if (!isPro && filtered.length > 9) { toast.error("Free plan supports up to 9 stops. Upgrade to Pro for unlimited!"); return; }
 
       const geocodeWithCache = async (query: string): Promise<GeocodeResult | null> => {
         const normalizedQuery = query.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -519,6 +536,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
 
       fitToBounds(route.coordinates as LngLat[]);
       setRouteOptimized(true);
+      recordUsage();
 
       setTimeout(() => {
         mapContainer.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -531,7 +549,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     } finally {
       setLoading(false);
     }
-  }, [start, destinations, trafficOn, stabilizeResults, drawRoute, updateMarkers, fitToBounds, attachHoverTooltip]);
+  }, [start, destinations, trafficOn, stabilizeResults, drawRoute, updateMarkers, fitToBounds, attachHoverTooltip, isPro, checkUsage, recordUsage]);
 
   const addDestination = () => {
     if (!canAddDestination) return;
@@ -633,10 +651,12 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
 
   // Sticky button state
   const getStickyButtonConfig = () => {
+    if (locked) return { label: "Daily limit reached – Upgrade to Pro", disabled: false, action: () => setShowUpgradeNudge(true) };
     if (loading) return { label: "Optimizing...", disabled: true, action: () => {} };
     if (routeOptimized) return { label: "Recalculate route", disabled: false, action: optimizeRoute };
+    const usesLabel = !isPro && remainingUses < MAX_FREE_USES ? ` (${remainingUses} left today)` : '';
     return {
-      label: `Find shortest route${filledStops >= 2 ? ` (${filledStops + 1} stops)` : ''}`,
+      label: `Find shortest route${filledStops >= 2 ? ` (${filledStops + 1} stops)` : ''}${usesLabel}`,
       disabled: !canOptimize,
       action: optimizeRoute
     };
@@ -708,8 +728,8 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
           <Card className="shadow-[var(--shadow-elegant)] border-l-2 border-l-accent/30">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Stops (2–9)</CardTitle>
-                <span className="text-sm text-muted-foreground">{filledStops}/9</span>
+                <CardTitle className="text-base">Stops {isPro ? '' : '(2–9)'}</CardTitle>
+                <span className="text-sm text-muted-foreground">{filledStops}{isPro ? '' : '/9'}</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -1003,6 +1023,37 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleNewRoute}>Start New Route</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Upgrade Nudge Dialog */}
+      <AlertDialog open={showUpgradeNudge} onOpenChange={setShowUpgradeNudge}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-accent" />
+              {locked ? "Daily limit reached" : "Enjoying ZipRoute?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {locked
+                ? "You've used all 5 free optimizations for today. Upgrade to Pro for unlimited route optimizations, unlimited stops, and more!"
+                : `You have ${remainingUses} free optimization${remainingUses === 1 ? '' : 's'} left today. Upgrade to Pro for unlimited access!`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {!locked && <AlertDialogCancel>Continue Free</AlertDialogCancel>}
+            {locked && <AlertDialogCancel>OK</AlertDialogCancel>}
+            <AlertDialogAction
+              onClick={() => {
+                // Trigger pricing modal via global modal system
+                window.dispatchEvent(new CustomEvent('open-modal', { detail: 'pricing' }));
+              }}
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+            >
+              Upgrade to Pro
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

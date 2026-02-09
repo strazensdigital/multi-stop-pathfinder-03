@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Menu, X, MapPin, Trash2, Loader2 } from "lucide-react";
+import { Menu, X, MapPin, Trash2, Loader2, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AuthDialog } from "@/components/AuthDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoutes, SavedRoute } from "@/hooks/useRoutes";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Separator } from "@/components/ui/separator";
 
 interface HamburgerMenuProps {
@@ -16,6 +17,7 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const { user, profile, signOut } = useAuth();
   const { savedRoutes, loadingRoutes, fetchRoutes, deleteRoute } = useRoutes();
+  const { openPortal } = useSubscription();
 
   useEffect(() => {
     if (isSheetOpen && user) {
@@ -73,13 +75,25 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
 
             <div className="space-y-3">
               {user ? (
-                <Button
-                  variant="outline"
-                  onClick={handleSignOut}
-                  className="w-full justify-center font-normal border-border/40 hover:bg-muted"
-                >
-                  Sign Out
-                </Button>
+                <>
+                  {profile?.plan === "pro" && (
+                    <Button
+                      variant="outline"
+                      onClick={() => openPortal()}
+                      className="w-full justify-center font-normal border-border/40 hover:bg-muted"
+                    >
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Manage Subscription
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={handleSignOut}
+                    className="w-full justify-center font-normal border-border/40 hover:bg-muted"
+                  >
+                    Sign Out
+                  </Button>
+                </>
               ) : (
                 <Button
                   variant="outline"
