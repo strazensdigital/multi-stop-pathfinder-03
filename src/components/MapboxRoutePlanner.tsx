@@ -17,6 +17,7 @@ import { useRoutes } from "@/hooks/useRoutes";
 import { useUsageGate } from "@/hooks/useUsageGate";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { Save, Loader2, Lock, Star } from "lucide-react";
+import { AiPasteBox } from "@/components/AiPasteBox";
 
 interface MapboxRoutePlannerProps {
   routeToLoad?: any[] | null;
@@ -252,6 +253,15 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     const name = ordered.map((s) => s.label.split(",")[0].trim()).slice(0, 3).join(" → ");
     await saveRoute(name, ordered);
     setSavingRoute(false);
+  };
+
+  const handleAiExtracted = (startAddr: string, dests: string[]) => {
+    if (startAddr) setStart(startAddr);
+    const needed = Math.max(dests.length, 2);
+    const newDests = Array.from({ length: Math.min(needed, maxStops) }, (_, i) => dests[i] || "");
+    setDestinations(newDests);
+    setRouteOptimized(false);
+    setOrdered(null);
   };
 
   const debouncedFetchSuggestions = useMemo(
@@ -735,6 +745,9 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-4">
+
+          {/* AI Paste Box */}
+          <AiPasteBox bookmarks={bookmarks} onAddressesExtracted={handleAiExtracted} />
 
           {/* Card A - Start */}
           <Card className="shadow-[var(--shadow-elegant)] border-l-2 border-l-accent/30">
