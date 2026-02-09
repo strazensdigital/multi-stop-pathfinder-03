@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { useRoutes } from "@/hooks/useRoutes";
 import { useUsageGate } from "@/hooks/useUsageGate";
-import { Save, Loader2, Lock } from "lucide-react";
+import { useBookmarks } from "@/hooks/useBookmarks";
+import { Save, Loader2, Lock, Star } from "lucide-react";
 
 interface MapboxRoutePlannerProps {
   routeToLoad?: any[] | null;
@@ -177,6 +178,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
   const { user } = useAuth();
   const { saveRoute } = useRoutes();
   const { locked, isPro, maxStops, checkUsage, recordUsage, remainingUses, MAX_FREE_USES } = useUsageGate();
+  const { bookmarks, matchBookmarks, addBookmark } = useBookmarks();
   const [showUpgradeNudge, setShowUpgradeNudge] = useState(false);
   const [savingRoute, setSavingRoute] = useState(false);
   const mapContainer = useRef<HTMLDivElement | null>(null);
@@ -665,11 +667,31 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
   const stickyBtn = getStickyButtonConfig();
 
   /* ─── Autocomplete dropdown sub-component ─── */
-  const SuggestionsDropdown: React.FC<{ keyName: string; onSelect: (s: GeocodeResult) => void }> = ({ keyName, onSelect }) => {
-    if (!showSuggestions[keyName] || !suggestions[keyName] || suggestions[keyName].length === 0) return null;
+  const SuggestionsDropdown: React.FC<{ keyName: string; onSelect: (s: GeocodeResult) => void; currentValue?: string }> = ({ keyName, onSelect, currentValue }) => {
+    // Merge bookmark matches at the top
+    const bookmarkMatches = currentValue ? matchBookmarks(currentValue) : [];
+    const geoSuggestions = suggestions[keyName] || [];
+    const hasBookmarks = bookmarkMatches.length > 0;
+    const hasGeo = geoSuggestions.length > 0;
+    const show = showSuggestions[keyName] && (hasBookmarks || hasGeo);
+    if (!show) return null;
     return (
       <div className="absolute top-full left-0 right-0 bg-background border border-border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
-        {suggestions[keyName].map((suggestion, j) => (
+        {bookmarkMatches.map((bm) => (
+          <button
+            key={`bm-${bm.id}`}
+            className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-b-0 flex items-center gap-2"
+            onClick={() => onSelect({ place_name: bm.address, center: [bm.lng || 0, bm.lat || 0] })}
+          >
+            <Star className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+            <span>
+              <span className="font-medium">{bm.nickname}</span>
+              <span className="text-muted-foreground ml-1.5 text-xs">{bm.address.split(',')[0]}</span>
+            </span>
+          </button>
+        ))}
+        {hasBookmarks && hasGeo && <div className="h-px bg-border" />}
+        {geoSuggestions.map((suggestion, j) => (
           <button
             key={j}
             className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b border-border/50 last:border-b-0"
@@ -715,7 +737,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
                     onBlur={() => setTimeout(() => setShowSuggestions(prev => ({ ...prev, start: false })), 150)}
                     className="min-h-[44px]"
                   />
-                  <SuggestionsDropdown keyName="start" onSelect={(s) => handleSuggestionSelect(s, 'start', setStart)} />
+                  <SuggestionsDropdown keyName="start" onSelect={(s) => handleSuggestionSelect(s, 'start', setStart)} currentValue={start} />
                 </div>
                 <Button type="button" variant="outline" onClick={setMyLocationAsStart} className="min-h-[44px] text-xs px-3">
                   Use my location
@@ -754,6 +776,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
                       />
                       <SuggestionsDropdown
                         keyName={`dest-${i}`}
+                        currentValue={destination}
                         onSelect={(s) => {
                           const newDests = [...destinations]; newDests[i] = s.place_name; setDestinations(newDests);
                           handleSuggestionSelect(s, `dest-${i}`, () => {});

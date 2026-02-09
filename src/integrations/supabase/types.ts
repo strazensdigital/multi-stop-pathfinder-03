@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      bookmarks: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          lat: number | null
+          lng: number | null
+          nickname: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          nickname: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          nickname?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           display_name: string | null
