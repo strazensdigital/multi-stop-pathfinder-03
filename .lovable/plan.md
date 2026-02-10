@@ -1,105 +1,63 @@
 
 
-# ZipRoute Enhancement Plan
+## Plan: Fix Subscription Robustness, Remove "Stable Results", and Add IP-Based Geo-Bias
 
-## Overview
-This plan covers 5 enhancements: username support with greeting, "Upgrade to Pro" button in the hamburger menu, Google Maps multi-leg splitting (9-stop batches), a proper Privacy Policy page, and mobile UI polish.
+### Problem 1: Manual Pro status gets overwritten
 
----
+Your SQL query did set `plan = 'pro'`, but the `check-subscription` edge function runs every 60 seconds and overwrites it back to `"free"` because there's no Stripe subscription for your account.
 
-## 1. Username Support + Greeting
+**Fix:** Add a `plan_source` column to the `profiles` table. When you manually set someone to Pro, you also set `plan_source = 'manual'`. The `check-subscription` function will skip overwriting the plan if `plan_source = 'manual'`.
 
-**What changes:**
-- Add a `display_name` column to the `profiles` table (nullable, text).
-- Update the registration form to include an optional "Display Name" field.
-- Update the `useAuth` hook to include `display_name` in the profile fetch.
-- Show "Hi, [display_name]!" in the hamburger menu when logged in. Falls back to email if no name set.
+Steps:
+- Add migration: `ALTER TABLE profiles ADD COLUMN plan_source text DEFAULT 'stripe';`
+- Update `check-subscription` edge function to check `plan_source` before overwriting. If `plan_source = 'manual'`, return the existing plan without touching it.
+- Run SQL to set your account: `UPDATE profiles SET plan = 'pro', plan_source = 'manual' WHERE email = 'anmolpanna@gmail.com';`
 
-**Database migration:**
-```sql
-ALTER TABLE public.profiles ADD COLUMN display_name text;
+### Problem 2: Remove "Stable Results" toggle
+
+The "Stable Results" switch pre-sorts destinations by coordinates for deterministic optimizer output. This is confusing for users and provides minimal value.
+
+Steps:
+- Remove the `stabilizeResults` state, localStorage persistence, and the Switch UI from `MapboxRoutePlanner.tsx`
+- Remove the sorting branch in the `optimizeRoute` function -- always use the simple (non-sorted) path
+
+### Problem 3: IP-based geocoding bias
+
+Currently geocoding is restricted to `country=us,ca`. Instead of prompting users for location, we can use a free IP geolocation API to detect the user's approximate country/region and bias results accordingly -- no browser permission popup needed.
+
+Steps:
+- On app load, fetch the user's approximate location from a free IP API (e.g., `https://ipapi.co/json/`) once and cache it in state
+- Pass the detected country code(s) and coordinates as `proximity` and `country` parameters to the Mapbox geocoding calls
+- Fall back to the current `us,ca` default if the IP lookup fails
+
+### Technical Details
+
+**Files to modify:**
+- `supabase/functions/check-subscription/index.ts` -- add `plan_source` check
+- `src/components/MapboxRoutePlanner.tsx` -- remove stable results toggle and logic; add IP geolocation for geocoding bias
+- New migration for `plan_source` column
+
+**Edge function change (check-subscription):**
+```
+// Before overwriting plan, check plan_source
+const { data: profileData } = await supabaseClient
+  .from("profiles")
+  .select("plan_source")
+  .eq("id", user.id)
+  .single();
+
+if (profileData?.plan_source === "manual") {
+  // Don't touch manually-set plans
+  return existing plan from profiles
+}
+// Otherwise proceed with Stripe-based plan sync as before
 ```
 
-**Files changed:**
-- `src/hooks/useAuth.tsx` -- add `display_name` to `UserProfile` interface and SELECT query
-- `src/components/AuthDialog.tsx` -- add a "Display Name" input on the Register tab, pass it to `signUp`, then upsert into profiles
-- `src/components/HamburgerMenu.tsx` -- show greeting: "Hi, [name]!" at the top of the Account section
-- `src/hooks/useAuth.tsx` -- update `signUp` to accept optional `displayName` and write it to profiles after signup
-
-## 2. "Upgrade to Pro" Button in Hamburger Menu
-
-**What changes:**
-- For non-Pro users (guest or free), add a prominent, accent-colored "Upgrade to Pro" button in the hamburger menu between the account section and routes section.
-- Styled with a gradient or accent background to attract attention, with a crown/zap icon.
-- Tapping it opens the Pricing modal (or Auth dialog if not logged in).
-
-**Files changed:**
-- `src/components/HamburgerMenu.tsx` -- add the upgrade button with eye-catching styling
-
-## 3. Google Maps Multi-Leg Splitting (9-stop batches)
-
-**What changes:**
-- Google Maps limits waypoints to ~9 intermediate stops per URL. For Pro users with more stops, the app will split the optimized route into batches of up to 9 waypoints each and open multiple Google Maps tabs (Leg 1, Leg 2, etc.), where the last stop of one leg becomes the first stop of the next.
-- Show a brief explanation toast or note when multiple tabs open.
-
-**Files changed:**
-- `src/components/MapboxRoutePlanner.tsx` -- update `buildGoogleMapsUrl` to return an array of URLs when stops exceed 10 (1 origin + 9 waypoints + 1 destination = 11 max per leg). Update the Google Maps button handler to open multiple tabs and show user feedback.
-
-**Logic:**
-- Each Google Maps URL supports: 1 origin + up to 9 waypoints + 1 destination = 11 stops max.
-- For N total stops, split into chunks where each chunk has at most 11 stops, with overlap (last stop of chunk N = first stop of chunk N+1).
-- Label the button "Google Maps (X legs)" when splitting is needed.
-
-## 4. Privacy Policy & Terms Updates
-
-**What changes:**
-- Replace placeholder company name and email in Privacy and Terms modals with actual or more professional placeholders.
-- These are already accessible via modals on the landing page -- no new pages needed, they already work with deep linking (`/#privacy`, `/#tos`).
-- Minor content polish (update copyright year to 2025, clean up placeholder text).
-
-**Files changed:**
-- `src/components/modals/PrivacyModal.tsx` -- update placeholder text
-- `src/components/modals/TermsModal.tsx` -- update placeholder text
-- `src/components/LandingPage.tsx` -- update copyright year
-
-## 5. Mobile UI Polish
-
-**What changes:**
-- Ensure the hamburger menu sheet is full-width on small screens (already `w-80`, will make it responsive).
-- Ensure all tap targets in the menu are at least 44px.
-- Make the upgrade button in the menu prominent and thumb-friendly.
-- Ensure the pricing modal grid stacks vertically on mobile (already `md:grid-cols-3`, so it stacks on small screens -- just verify spacing).
-
-**Files changed:**
-- `src/components/HamburgerMenu.tsx` -- responsive width, proper spacing
-- Minor touch-target checks across modified components
-
----
-
-## Technical Details
-
-### Database Migration
-A single migration adds the `display_name` column:
-```sql
-ALTER TABLE public.profiles ADD COLUMN display_name text;
+**IP geolocation (one-time on mount):**
 ```
-
-### Component Changes Summary
-
-| File | Changes |
-|------|---------|
-| `src/hooks/useAuth.tsx` | Add `display_name` to profile type and fetch; update signUp |
-| `src/components/AuthDialog.tsx` | Add display name field on Register tab |
-| `src/components/HamburgerMenu.tsx` | Greeting, Upgrade to Pro button, mobile polish |
-| `src/components/MapboxRoutePlanner.tsx` | Multi-leg Google Maps URL splitting |
-| `src/components/modals/PrivacyModal.tsx` | Content cleanup |
-| `src/components/modals/TermsModal.tsx` | Content cleanup |
-| `src/components/LandingPage.tsx` | Copyright year |
-
-### Implementation Order
-1. Database migration (add `display_name`)
-2. Auth changes (profile fetch, signup with name)
-3. Hamburger menu (greeting + upgrade button + mobile polish)
-4. Google Maps multi-leg splitting
-5. Privacy/Terms content updates
+// Fetch once, cache in ref
+const geo = await fetch("https://ipapi.co/json/").then(r => r.json());
+// Use geo.country_code for country filter
+// Use [geo.longitude, geo.latitude] for proximity bias
+```
 
