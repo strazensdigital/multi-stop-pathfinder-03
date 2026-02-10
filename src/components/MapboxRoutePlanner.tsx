@@ -10,6 +10,9 @@ import { toast } from "sonner";
 import { OrderedStop, formatArrowString, reverseGeocode, toKm, toMiles, toMinutes, isCoordInput } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
+// IP geolocation cache
+let geoCache: { country: string; longitude: number; latitude: number } | null = null;
+let geoFetched = false;
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -44,6 +47,12 @@ type GeocodeResult = {
   center: LngLat;
 };
 
+const getGeoParams = () => {
+  const country = geoCache?.country?.toLowerCase() || "us,ca";
+  const proximity = geoCache ? `&proximity=${geoCache.longitude},${geoCache.latitude}` : "";
+  return { country, proximity };
+};
+
 const geocode = async (query: string): Promise<GeocodeResult | null> => {
   const coordMatch = query.trim().match(/^(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)$/);
   if (coordMatch) {
@@ -53,9 +62,10 @@ const geocode = async (query: string): Promise<GeocodeResult | null> => {
       return { place_name: `${lat}, ${lng}`, center: [lng, lat] };
     }
   }
+  const { country, proximity } = getGeoParams();
   const encoded = encodeURIComponent(query.trim());
   const res = await fetch(
-    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?limit=1&country=us,ca&access_token=${getToken()}`
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?limit=1&country=${country}${proximity}&access_token=${getToken()}`
   );
   if (!res.ok) return null;
   const data = await res.json();
@@ -66,10 +76,11 @@ const geocode = async (query: string): Promise<GeocodeResult | null> => {
 
 const fetchSuggestions = async (query: string, proximity?: LngLat): Promise<GeocodeResult[]> => {
   if (!query.trim()) return [];
+  const { country, proximity: geoProximity } = getGeoParams();
   const encoded = encodeURIComponent(query.trim());
-  const proximityParam = proximity ? `&proximity=${proximity[0]},${proximity[1]}` : '';
+  const proximityParam = proximity ? `&proximity=${proximity[0]},${proximity[1]}` : geoProximity;
   const res = await fetch(
-    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?autocomplete=true&limit=5&types=address,poi,place,locality,neighborhood&country=us,ca${proximityParam}&access_token=${getToken()}`
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?autocomplete=true&limit=5&types=address,poi,place,locality,neighborhood&country=${country}${proximityParam}&access_token=${getToken()}`
   );
   if (!res.ok) return [];
   const data = await res.json();
@@ -205,10 +216,6 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     const saved = localStorage.getItem('route-traffic-enabled');
     return saved ? JSON.parse(saved) : false;
   });
-  const [stabilizeResults, setStabilizeResults] = useState(() => {
-    const saved = localStorage.getItem('route-stabilize-enabled');
-    return saved ? JSON.parse(saved) : true;
-  });
   const [currentTheme, setCurrentTheme] = useState<string>(() => {
     const saved = localStorage.getItem("MAP_STYLE");
     return ALLOWED_STYLES.has(saved || "") ? saved! : SAT;
@@ -226,6 +233,20 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
   });
 
   const canAddDestination = destinations.length < maxStops;
+
+  // Fetch IP-based geolocation once on mount
+  useEffect(() => {
+    if (geoFetched) return;
+    geoFetched = true;
+    fetch("https://ipapi.co/json/")
+      .then(r => r.json())
+      .then(data => {
+        if (data?.country_code && data?.longitude && data?.latitude) {
+          geoCache = { country: data.country_code, longitude: data.longitude, latitude: data.latitude };
+        }
+      })
+      .catch(() => { /* fall back to us,ca default */ });
+  }, []);
 
   // Fetch saved routes count for save-gate
   useEffect(() => {
@@ -464,17 +485,8 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
       let coords: LngLat[];
       let labelsByStableIndex: string[];
 
-      if (stabilizeResults) {
-        const stable = destResults.map((res, i) => ({
-          center: res.center as LngLat,
-          typed: filtered[i]
-        })).sort((a, b) => a.center[0] - b.center[0] || a.center[1] - b.center[1]);
-        coords = [startRes.center, ...stable.map(x => x.center)];
-        labelsByStableIndex = [rawInputLabels[0], ...stable.map(x => x.typed)];
-      } else {
-        coords = [startRes.center, ...destResults.map(r => r.center)];
-        labelsByStableIndex = rawInputLabels;
-      }
+      coords = [startRes.center, ...destResults.map(r => r.center)];
+      labelsByStableIndex = rawInputLabels;
 
       const coordsStr = coords.map((c) => `${c[0]},${c[1]}`).join(";");
       const baseParams = `source=first&destination=last&roundtrip=false&geometries=geojson&overview=full&access_token=${getToken()}`;
@@ -577,7 +589,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     } finally {
       setLoading(false);
     }
-  }, [start, destinations, trafficOn, stabilizeResults, drawRoute, updateMarkers, fitToBounds, attachHoverTooltip, isPro, checkUsage, recordUsage]);
+  }, [start, destinations, trafficOn, drawRoute, updateMarkers, fitToBounds, attachHoverTooltip, isPro, checkUsage, recordUsage]);
 
   const addDestination = () => {
     if (!canAddDestination) return;
@@ -855,17 +867,6 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
                     if (routeGeometry.current) {
                       drawRoute(routeGeometry.current);
                     }
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="stabilize" className="text-sm">Stable results</Label>
-                <Switch
-                  id="stabilize"
-                  checked={stabilizeResults}
-                  onCheckedChange={(checked) => {
-                    setStabilizeResults(checked);
-                    localStorage.setItem('route-stabilize-enabled', JSON.stringify(checked));
                   }}
                 />
               </div>

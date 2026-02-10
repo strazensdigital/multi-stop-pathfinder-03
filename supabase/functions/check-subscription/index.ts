@@ -45,12 +45,29 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    // Check if plan is manually set — if so, skip Stripe sync entirely
+    const { data: profileData } = await supabaseClient
+      .from("profiles")
+      .select("plan, plan_source")
+      .eq("id", user.id)
+      .single();
+
+    if (profileData?.plan_source === "manual") {
+      logStep("Plan source is manual, skipping Stripe sync", { plan: profileData.plan });
+      return new Response(JSON.stringify({
+        subscribed: profileData.plan === "pro",
+        plan: profileData.plan || "free",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
 
     if (customers.data.length === 0) {
       logStep("No Stripe customer found, user is free");
-      // Update profile to free
       await supabaseClient.from("profiles").update({ plan: "free" }).eq("id", user.id);
       return new Response(JSON.stringify({ subscribed: false, plan: "free" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
