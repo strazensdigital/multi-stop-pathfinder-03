@@ -10,6 +10,9 @@ import { toast } from "sonner";
 import { OrderedStop, formatArrowString, reverseGeocode, toKm, toMiles, toMinutes, isCoordInput } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 // IP geolocation cache
 let geoCache: { country: string; longitude: number; latitude: number } | null = null;
 let geoFetched = false;
@@ -19,8 +22,27 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRoutes } from "@/hooks/useRoutes";
 import { useUsageGate } from "@/hooks/useUsageGate";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { Save, Loader2, Lock, Star } from "lucide-react";
+import { Save, Loader2, Lock, Star, GripVertical } from "lucide-react";
 import { AiPasteBox } from "@/components/AiPasteBox";
+
+// 15-stop sample route across NYC
+const SAMPLE_STOPS = [
+  "Times Square, New York, NY",
+  "Empire State Building, New York, NY",
+  "Central Park Zoo, New York, NY",
+  "Grand Central Terminal, New York, NY",
+  "Rockefeller Center, New York, NY",
+  "Bryant Park, New York, NY",
+  "Madison Square Garden, New York, NY",
+  "Chelsea Market, New York, NY",
+  "Washington Square Park, New York, NY",
+  "Brooklyn Bridge, New York, NY",
+  "Wall Street, New York, NY",
+  "One World Trade Center, New York, NY",
+  "Statue of Liberty Ferry, New York, NY",
+  "High Line, New York, NY",
+  "Hudson Yards, New York, NY",
+];
 
 interface MapboxRoutePlannerProps {
   routeToLoad?: any[] | null;
@@ -165,6 +187,63 @@ const getCurrentPosition = (): Promise<GeolocationPosition> =>
   });
 
 /* ─── Traffic Legend Component ─── */
+/* ─── Sortable Stop Item for drag-and-drop ─── */
+const SortableStopItem: React.FC<{
+  id: string;
+  stop: OrderedStop;
+  units: 'metric' | 'imperial';
+  shortLabel: (s: string) => string;
+  onRowClick: (stop: OrderedStop) => void;
+}> = ({ id, stop, units, shortLabel, onRowClick }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className="py-4 cursor-pointer hover:bg-muted/50 rounded-md px-2 transition-colors"
+      onClick={() => onRowClick(stop)}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <button
+            className="mt-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground"
+            {...attributes}
+            {...listeners}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <span
+            className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-medium mt-0.5 ${
+              stop.order === 0 ? 'bg-[#7c3aed] text-white' : 'bg-[#06b6d4] text-white'
+            }`}
+          >
+            {stop.order === 0 ? 'S' : stop.order}
+          </span>
+          <div className="min-w-0">
+            <div className="font-medium text-foreground">{shortLabel(stop.label)}</div>
+            <div className="text-sm text-muted-foreground mt-0.5 truncate">{stop.label}</div>
+          </div>
+        </div>
+        {stop.toNext && (
+          <span className="text-xs px-2.5 py-1 rounded-md bg-muted text-muted-foreground whitespace-nowrap shrink-0">
+            {units === 'metric'
+              ? `${toKm(stop.toNext.distance_m).toFixed(1)} km`
+              : `${toMiles(stop.toNext.distance_m).toFixed(1)} mi`
+            } • {toMinutes(stop.toNext.duration_s).toFixed(0)} min
+          </span>
+        )}
+      </div>
+    </li>
+  );
+};
+
 const TrafficLegend: React.FC = () => (
   <div className="inline-flex items-center gap-4 px-4 py-2 rounded-lg border border-border bg-background/90 backdrop-blur-sm text-xs">
     <span className="font-medium text-foreground">Traffic</span>
@@ -223,6 +302,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
   const [showTrafficDialog, setShowTrafficDialog] = useState(false);
   const [showNewRouteDialog, setShowNewRouteDialog] = useState(false);
   const [routeOptimized, setRouteOptimized] = useState(false);
+  const [isSampleRoute, setIsSampleRoute] = useState(false);
   
   // Autocomplete states
   const [suggestions, setSuggestions] = useState<{[key: string]: GeocodeResult[]}>({});
@@ -252,6 +332,21 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
   useEffect(() => {
     if (user) fetchRoutes();
   }, [user, fetchRoutes]);
+
+  // Zero-state sample route: auto-populate on first load if empty
+  const sampleLoadedRef = useRef(false);
+  useEffect(() => {
+    if (sampleLoadedRef.current) return;
+    if (start.trim() || destinations.some(d => d.trim())) return;
+    sampleLoadedRef.current = true;
+    setStart(SAMPLE_STOPS[0]);
+    setDestinations(SAMPLE_STOPS.slice(1));
+    setIsSampleRoute(true);
+    // Auto-trigger optimization after a tick
+    setTimeout(() => {
+      toast.info("Viewing sample 15-stop route. Clear to start your own.");
+    }, 500);
+  }, []);
 
   // Load route from saved routes
   useEffect(() => {
@@ -609,6 +704,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
 
   const handleInputChange = (value: string, key: string, setter: (value: string) => void) => {
     setter(value);
+    dismissSample();
     debouncedFetchSuggestions(value, key);
     if (value.trim()) { setShowSuggestions(prev => ({ ...prev, [key]: true })); }
   };
@@ -659,6 +755,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     setTotalsLive(null);
     setTotalsTypical(null);
     setRouteOptimized(false);
+    setIsSampleRoute(false);
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
     const map = mapRef.current;
@@ -669,6 +766,72 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     routeGeometry.current = null;
     setShowNewRouteDialog(false);
   };
+
+  // Dismiss sample when user edits any field
+  const dismissSample = useCallback(() => {
+    if (isSampleRoute) setIsSampleRoute(false);
+  }, [isSampleRoute]);
+
+  // Drag-and-drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !ordered) return;
+
+    const oldIndex = ordered.findIndex((_, i) => `stop-${i}` === active.id);
+    const newIndex = ordered.findIndex((_, i) => `stop-${i}` === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(ordered, oldIndex, newIndex).map((stop, i) => ({
+      ...stop,
+      order: i,
+      role: (i === 0 ? 'Start' : 'Stop') as 'Start' | 'Stop',
+    }));
+
+    setOrdered(reordered);
+    setArrow(formatArrowString(reordered));
+
+    // Recalculate route geometry via Directions API (not re-optimization)
+    try {
+      const coords = reordered.map(s => `${s.lng},${s.lat}`).join(';');
+      const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coords}?geometries=geojson&overview=full&annotations=distance,duration&access_token=${getToken()}`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json();
+      const route = data?.routes?.[0];
+      if (!route) return;
+
+      // Update leg distances
+      const legs = route.legs || [];
+      const updatedStops = reordered.map((stop, i) => ({
+        ...stop,
+        toNext: i < legs.length ? { distance_m: legs[i].distance || 0, duration_s: legs[i].duration || 0 } : undefined,
+      }));
+      setOrdered(updatedStops);
+
+      // Update totals
+      setTotalsLive({ distance_m: route.distance, duration_s: route.duration });
+
+      // Redraw route on map
+      const geojson: Feature<LineString> = { type: "Feature", geometry: route.geometry, properties: {} };
+      drawRoute(geojson);
+
+      // Update markers
+      updateMarkers(updatedStops.map((stop, i) => ({
+        coord: [stop.lng, stop.lat] as LngLat,
+        color: i === 0 ? "#7c3aed" : "#06b6d4",
+        label: stop.label,
+        role: stop.role,
+        index: stop.order,
+      })));
+    } catch {
+      // silently fail, keep the reordered list
+    }
+  }, [ordered, drawRoute, updateMarkers]);
 
   const handleTrafficChoice = (choice: boolean) => {
     setTrafficOn(choice);
@@ -696,7 +859,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     if (routeOptimized) return { label: "Recalculate route", disabled: false, action: optimizeRoute };
     const usesLabel = !isPro && remainingUses < MAX_FREE_USES ? ` (${remainingUses} left today)` : '';
     return {
-      label: `Find shortest route${filledStops >= 2 ? ` (${filledStops + 1} stops)` : ''}${usesLabel}`,
+      label: `Find My Fastest Route${filledStops >= 2 ? ` (${filledStops + 1} stops)` : ''}${usesLabel}`,
       disabled: !canOptimize,
       action: optimizeRoute
     };
@@ -748,11 +911,11 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-baseline gap-3">
           <h1 className="text-2xl font-bold text-foreground tracking-tight">ZipRoute</h1>
-          <span className="text-sm font-medium text-accent">Free multi-stop optimizer</span>
+          <span className="text-sm font-medium text-accent">Beat the 10-stop limit</span>
         </div>
       </div>
       <p className="text-sm text-muted-foreground italic mb-6">
-        Optimize multi-stop routes in seconds — free, fast, Google Maps-ready.
+        Type your stops, tap once, save 2 hours of driving.
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -970,41 +1133,22 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
             </div>
           </CardHeader>
           <CardContent className="space-y-0">
-            <ul className="divide-y divide-border">
-              {ordered.map((stop, i) => (
-                <li 
-                  key={i} 
-                  className="py-4 cursor-pointer hover:bg-muted/50 rounded-md px-2 transition-colors"
-                  onClick={() => handleRowClick(stop)}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <span
-                        className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-medium mt-0.5 ${
-                          stop.order === 0
-                            ? 'bg-[#7c3aed] text-white'
-                            : 'bg-[#06b6d4] text-white'
-                        }`}
-                      >
-                        {stop.order === 0 ? 'S' : stop.order}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="font-medium text-foreground">{shortLabel(stop.label)}</div>
-                        <div className="text-sm text-muted-foreground mt-0.5 truncate">{stop.label}</div>
-                      </div>
-                    </div>
-                    {stop.toNext && (
-                      <span className="text-xs px-2.5 py-1 rounded-md bg-muted text-muted-foreground whitespace-nowrap shrink-0">
-                        {units === 'metric' 
-                          ? `${toKm(stop.toNext.distance_m).toFixed(1)} km`
-                          : `${toMiles(stop.toNext.distance_m).toFixed(1)} mi`
-                        } • {toMinutes(stop.toNext.duration_s).toFixed(0)} min
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={ordered.map((_, i) => `stop-${i}`)} strategy={verticalListSortingStrategy}>
+                <ul className="divide-y divide-border">
+                  {ordered.map((stop, i) => (
+                    <SortableStopItem
+                      key={`stop-${i}`}
+                      id={`stop-${i}`}
+                      stop={stop}
+                      units={units}
+                      shortLabel={shortLabel}
+                      onRowClick={handleRowClick}
+                    />
+                  ))}
+                </ul>
+              </SortableContext>
+            </DndContext>
 
             {/* Action Buttons */}
             <div className="pt-4 space-y-2">
