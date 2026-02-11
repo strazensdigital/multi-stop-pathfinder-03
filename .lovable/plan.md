@@ -1,63 +1,104 @@
 
 
-## Plan: Fix Subscription Robustness, Remove "Stable Results", and Add IP-Based Geo-Bias
+## Plan: Core UI/UX Enhancements + Website Narrative Overhaul
 
-### Problem 1: Manual Pro status gets overwritten
+This is a large set of changes spanning 4 files. Here's the breakdown organized by area.
 
-Your SQL query did set `plan = 'pro'`, but the `check-subscription` edge function runs every 60 seconds and overwrites it back to `"free"` because there's no Stripe subscription for your account.
+---
 
-**Fix:** Add a `plan_source` column to the `profiles` table. When you manually set someone to Pro, you also set `plan_source = 'manual'`. The `check-subscription` function will skip overwriting the plan if `plan_source = 'manual'`.
+### Part 1: Zero-State Sample Route
 
-Steps:
-- Add migration: `ALTER TABLE profiles ADD COLUMN plan_source text DEFAULT 'stripe';`
-- Update `check-subscription` edge function to check `plan_source` before overwriting. If `plan_source = 'manual'`, return the existing plan without touching it.
-- Run SQL to set your account: `UPDATE profiles SET plan = 'pro', plan_source = 'manual' WHERE email = 'anmolpanna@gmail.com';`
+When the address list is empty on first load, auto-populate 15 pre-set coordinates (spread across a US city like NYC or LA) and render the optimized route on the map. Show a dismissible toast: "Viewing sample 15-stop route. Clear to start your own."
 
-### Problem 2: Remove "Stable Results" toggle
+**File:** `src/components/MapboxRoutePlanner.tsx`
+- Add a `SAMPLE_STOPS` constant with 15 real addresses
+- On mount, if `start` is empty and `destinations` are empty, populate them and auto-trigger optimization
+- Add a `isSampleRoute` state flag; when user clears or edits any field, dismiss the sample
 
-The "Stable Results" switch pre-sorts destinations by coordinates for deterministic optimizer output. This is confusing for users and provides minimal value.
+---
 
-Steps:
-- Remove the `stabilizeResults` state, localStorage persistence, and the Switch UI from `MapboxRoutePlanner.tsx`
-- Remove the sorting branch in the `optimizeRoute` function -- always use the simple (non-sorted) path
+### Part 2: Drag-and-Drop Stop Reordering
 
-### Problem 3: IP-based geocoding bias
+Install `@dnd-kit/core` and `@dnd-kit/sortable` (lightweight, well-maintained). Allow users to drag stops in the optimized route list to manually override the sequence.
 
-Currently geocoding is restricted to `country=us,ca`. Instead of prompting users for location, we can use a free IP geolocation API to detect the user's approximate country/region and bias results accordingly -- no browser permission popup needed.
+**File:** `src/components/MapboxRoutePlanner.tsx`
+- Wrap the optimized route `<ul>` with `DndContext` + `SortableContext`
+- Each `<li>` becomes a `useSortable` item with a drag handle
+- On `onDragEnd`, reorder the `ordered` array, recalculate leg distances via Mapbox Directions API (not full re-optimization), and update map markers/route line in real-time
+- The "Time Saved" card in the hamburger menu updates automatically since it reads from `usage_events`
 
-Steps:
-- On app load, fetch the user's approximate location from a free IP API (e.g., `https://ipapi.co/json/`) once and cache it in state
-- Pass the detected country code(s) and coordinates as `proximity` and `country` parameters to the Mapbox geocoding calls
-- Fall back to the current `us,ca` default if the IP lookup fails
+---
+
+### Part 3: Side Menu "Estimated Time Saved" Fixes
+
+**File:** `src/components/UsageDashboard.tsx`
+- Round display to 1 decimal: `Math.round(time * 10) / 10`
+- Add `overflow-hidden`, `text-overflow: ellipsis`, `whitespace: nowrap` to the value container
+- Update formula to: `(numberOfStops * 2) + (numberOfStops * Math.log10(numberOfStops) * 1.5)`
+
+---
+
+### Part 4: Landing Page -- Hero and Narrative Overhaul
+
+**File:** `src/components/LandingPage.tsx`
+
+**Hero changes:**
+- Headline: "Route 20+ Stops in Seconds. Save 2 Hours of Driving Every Day."
+- Primary CTA: "Start Planning for Free" (smooth-scrolls to `/app`)
+- Secondary CTA: "See Pricing" (unchanged)
+
+**"Rule of 3" section** (new, below hero):
+Three columns with icons:
+1. **Upload** -- "Excel/CSV or type addresses."
+2. **Optimize** -- "One-click for shortest time."
+3. **Export** -- "Send to Google/Apple Maps."
+
+**Feature cards update:**
+- Replace "Free Tier" card copy: "Beat the 10-stop limit. Plan your entire day without manual headache."
+- Replace "Easy Upgrade" card copy: "Military-grade accuracy using real-time traffic data from global logistics fleets."
+- Remove "Lock Destinations" card; replace with a "50+ Stops" benefit card
+
+**Stats section update:**
+- Change "9 Stops in Free Tier" to "50+ Stops" (for Pro)
+
+**"ZipRoute vs. Google Maps" comparison table** (new section before footer):
+| Feature | Google Maps | ZipRoute |
+|---|---|---|
+| Max stops | 10 | 50+ |
+| Route optimization | None | Mathematical shortest path |
+| Live traffic | Yes | Yes |
+| Export to Maps | N/A | One-click |
+
+---
+
+### Part 5: Pricing Modal Updates
+
+**File:** `src/components/modals/PricingModal.tsx`
+- Remove "Lock a specific stop" from Pro features
+- Replace with "Beat Google's 10-stop limit"
+- Ultimate tier: replace features with "Fuel Savings Calculator", "SMS Route to Phone", "Printable Driver Manifests"
+
+---
+
+### Part 6: Copywriting Updates in Route Planner
+
+**File:** `src/components/MapboxRoutePlanner.tsx`
+- Change button label from `"Find shortest route"` to `"Find My Fastest Route"`
+- Change subtitle from "Free multi-stop optimizer" to "Beat the 10-stop limit"
+- Change tagline from "Optimize multi-stop routes in seconds..." to "Type your stops, tap once, save 2 hours of driving."
+
+---
 
 ### Technical Details
 
-**Files to modify:**
-- `supabase/functions/check-subscription/index.ts` -- add `plan_source` check
-- `src/components/MapboxRoutePlanner.tsx` -- remove stable results toggle and logic; add IP geolocation for geocoding bias
-- New migration for `plan_source` column
+**New dependency:** `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`
 
-**Edge function change (check-subscription):**
-```
-// Before overwriting plan, check plan_source
-const { data: profileData } = await supabaseClient
-  .from("profiles")
-  .select("plan_source")
-  .eq("id", user.id)
-  .single();
+**Files modified:**
+1. `src/components/MapboxRoutePlanner.tsx` -- sample route, drag-and-drop, copy changes
+2. `src/components/UsageDashboard.tsx` -- formula + display fix
+3. `src/components/LandingPage.tsx` -- hero, Rule of 3, comparison table, copy
+4. `src/components/modals/PricingModal.tsx` -- feature list updates
 
-if (profileData?.plan_source === "manual") {
-  // Don't touch manually-set plans
-  return existing plan from profiles
-}
-// Otherwise proceed with Stripe-based plan sync as before
-```
-
-**IP geolocation (one-time on mount):**
-```
-// Fetch once, cache in ref
-const geo = await fetch("https://ipapi.co/json/").then(r => r.json());
-// Use geo.country_code for country filter
-// Use [geo.longitude, geo.latitude] for proximity bias
-```
+**Drag-and-drop recalculation approach:**
+After reorder, call Mapbox Directions API (not optimization) with the new stop order to get updated geometry and leg distances, then redraw the route on the map. This avoids a full re-optimization which would ignore the user's manual order.
 
