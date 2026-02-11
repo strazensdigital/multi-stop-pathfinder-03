@@ -25,23 +25,13 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { Save, Loader2, Lock, Star, GripVertical } from "lucide-react";
 import { AiPasteBox } from "@/components/AiPasteBox";
 
-// 15-stop sample route across NYC
+// 5-stop sample route across Toronto
 const SAMPLE_STOPS = [
-  "Times Square, New York, NY",
-  "Empire State Building, New York, NY",
-  "Central Park Zoo, New York, NY",
-  "Grand Central Terminal, New York, NY",
-  "Rockefeller Center, New York, NY",
-  "Bryant Park, New York, NY",
-  "Madison Square Garden, New York, NY",
-  "Chelsea Market, New York, NY",
-  "Washington Square Park, New York, NY",
-  "Brooklyn Bridge, New York, NY",
-  "Wall Street, New York, NY",
-  "One World Trade Center, New York, NY",
-  "Statue of Liberty Ferry, New York, NY",
-  "High Line, New York, NY",
-  "Hudson Yards, New York, NY",
+  "CN Tower, Toronto, ON",
+  "Royal Ontario Museum, Toronto, ON",
+  "St. Lawrence Market, Toronto, ON",
+  "Distillery District, Toronto, ON",
+  "High Park, Toronto, ON",
 ];
 
 interface MapboxRoutePlannerProps {
@@ -333,7 +323,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     if (user) fetchRoutes();
   }, [user, fetchRoutes]);
 
-  // Zero-state sample route: auto-populate on first load if empty
+  // Zero-state sample route: auto-populate on first load if empty and auto-optimize
   const sampleLoadedRef = useRef(false);
   useEffect(() => {
     if (sampleLoadedRef.current) return;
@@ -342,11 +332,18 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     setStart(SAMPLE_STOPS[0]);
     setDestinations(SAMPLE_STOPS.slice(1));
     setIsSampleRoute(true);
-    // Auto-trigger optimization after a tick
-    setTimeout(() => {
-      toast.info("Viewing sample 15-stop route. Clear to start your own.");
-    }, 500);
+    toast.info("Viewing sample 5-stop route. Clear to start your own.");
   }, []);
+
+  // Auto-trigger optimization once sample route is loaded
+  const sampleOptimizedRef = useRef(false);
+  useEffect(() => {
+    if (!isSampleRoute || sampleOptimizedRef.current) return;
+    if (!start.trim() || destinations.filter(d => d.trim()).length < 2) return;
+    sampleOptimizedRef.current = true;
+    // Small delay to let map initialize
+    setTimeout(() => optimizeRoute(), 800);
+  }, [isSampleRoute, start, destinations]);
 
   // Load route from saved routes
   useEffect(() => {
