@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { CheckCircle, Zap, Lock, MapPin, Route, Clock } from "lucide-react";
+import { CheckCircle, Zap, MapPin, Route, Clock, Upload, MousePointerClick, ExternalLink } from "lucide-react";
 import roadLogo from "@/assets/road-logo.png";
 import GlobalModal from "@/components/modals/GlobalModal";
 import PricingModal from "@/components/modals/PricingModal";
@@ -46,10 +46,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       }
     };
 
-    // Check hash on mount
     handleHashChange();
-
-    // Listen for hash changes
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
@@ -61,7 +58,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
     setShowPrivacy(false);
     setShowTerms(false);
     setShowContact(false);
-    // Clear hash when closing modals
     if (window.location.hash) {
       window.history.pushState("", document.title, window.location.pathname);
     }
@@ -120,39 +116,24 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 </DialogHeader>
                 <div className="space-y-6 py-4">
                   <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-10 h-10 bg-accent text-accent-foreground rounded-full flex items-center justify-center font-bold">
-                      1
-                    </div>
+                    <div className="flex-shrink-0 w-10 h-10 bg-accent text-accent-foreground rounded-full flex items-center justify-center font-bold">1</div>
                     <div>
                       <h3 className="font-semibold text-lg mb-2">Enter Your Locations</h3>
-                      <p className="text-muted-foreground">
-                        Add your starting point and up to 9 destinations. You can enter addresses, 
-                        business names, or even coordinates.
-                      </p>
+                      <p className="text-muted-foreground">Add your starting point and destinations. You can enter addresses, business names, or even coordinates.</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-10 h-10 bg-accent text-accent-foreground rounded-full flex items-center justify-center font-bold">
-                      2
-                    </div>
+                    <div className="flex-shrink-0 w-10 h-10 bg-accent text-accent-foreground rounded-full flex items-center justify-center font-bold">2</div>
                     <div>
                       <h3 className="font-semibold text-lg mb-2">AI Optimization</h3>
-                      <p className="text-muted-foreground">
-                        Our AI powered by Mapbox analyzes traffic patterns, distances, and road conditions 
-                        to find the most efficient route order.
-                      </p>
+                      <p className="text-muted-foreground">Our optimizer analyzes traffic patterns, distances, and road conditions to find the most efficient route order.</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-10 h-10 bg-accent text-accent-foreground rounded-full flex items-center justify-center font-bold">
-                      3
-                    </div>
+                    <div className="flex-shrink-0 w-10 h-10 bg-accent text-accent-foreground rounded-full flex items-center justify-center font-bold">3</div>
                     <div>
                       <h3 className="font-semibold text-lg mb-2">Navigate with Ease</h3>
-                      <p className="text-muted-foreground">
-                        Get your optimized route opened directly in Google Maps for turn-by-turn navigation. 
-                        Save time, fuel, and reduce stress.
-                      </p>
+                      <p className="text-muted-foreground">Get your optimized route opened directly in Google Maps for turn-by-turn navigation. Save time, fuel, and reduce stress.</p>
                     </div>
                   </div>
                 </div>
@@ -172,19 +153,18 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       <section className="container mx-auto px-4 py-20 text-center">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6">
-            Optimize Your Routes in 
-            <span className="block text-accent mt-2">Minutes—for Free</span>
+            Route 20+ Stops in Seconds.
+            <span className="block text-accent mt-2">Save 2 Hours of Driving Every Day.</span>
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Get up to 9 stops optimized at no cost. Perfect for small businesses starting out. 
-            Upgrade anytime for just $10/month.
+            Type your stops, tap once, save 2 hours of driving. Beat Google Maps' 10-stop limit with mathematical route optimization.
           </p>
           <Button 
             onClick={onGetStarted}
             size="lg" 
             className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold mr-4"
           >
-            Get Started
+            Start Planning for Free
           </Button>
           <Button 
             onClick={() => openModal('pricing')}
@@ -197,6 +177,34 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         </div>
       </section>
 
+      {/* Rule of 3 Section */}
+      <section className="container mx-auto px-4 py-16">
+        <h2 className="text-3xl font-bold text-center text-foreground mb-12">How It Works</h2>
+        <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Upload className="w-8 h-8 text-accent" />
+            </div>
+            <h3 className="text-xl font-bold mb-2">Upload</h3>
+            <p className="text-muted-foreground">Excel/CSV or type addresses.</p>
+          </div>
+          <div className="text-center">
+            <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <MousePointerClick className="w-8 h-8 text-accent" />
+            </div>
+            <h3 className="text-xl font-bold mb-2">Optimize</h3>
+            <p className="text-muted-foreground">One-click for shortest time.</p>
+          </div>
+          <div className="text-center">
+            <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ExternalLink className="w-8 h-8 text-accent" />
+            </div>
+            <h3 className="text-xl font-bold mb-2">Export</h3>
+            <p className="text-muted-foreground">Send to Google/Apple Maps.</p>
+          </div>
+        </div>
+      </section>
+
       {/* Feature Highlights */}
       <section id="features" className="container mx-auto px-4 py-16">
         <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
@@ -205,9 +213,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-8 h-8 text-accent" />
               </div>
-              <h3 className="text-xl font-bold mb-3">Free Tier</h3>
+              <h3 className="text-xl font-bold mb-3">Beat the 10-Stop Limit</h3>
               <p className="text-muted-foreground">
-                Optimize up to 9 stops for free, no strings attached. Perfect for getting started.
+                Plan your entire day without manual headache. No more splitting routes across multiple tabs.
               </p>
             </CardContent>
           </Card>
@@ -217,9 +225,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Zap className="w-8 h-8 text-accent" />
               </div>
-              <h3 className="text-xl font-bold mb-3">Easy Upgrade</h3>
+              <h3 className="text-xl font-bold mb-3">Military-Grade Accuracy</h3>
               <p className="text-muted-foreground">
-                Unlock unlimited stops and advanced features for just $10/month when you're ready to scale.
+                Real-time traffic data from global logistics fleets powers every route calculation.
               </p>
             </CardContent>
           </Card>
@@ -227,11 +235,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           <Card className="text-center p-6 border-2 hover:border-accent/50 transition-colors">
             <CardContent className="pt-6">
               <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Lock className="w-8 h-8 text-accent" />
+                <Route className="w-8 h-8 text-accent" />
               </div>
-              <h3 className="text-xl font-bold mb-3">Lock Destinations</h3>
+              <h3 className="text-xl font-bold mb-3">50+ Stops</h3>
               <p className="text-muted-foreground">
-                Pro users can lock their final stop for more control over route planning and scheduling.
+                Pro users can optimize routes with 50+ stops in seconds. Perfect for delivery fleets and field teams.
               </p>
             </CardContent>
           </Card>
@@ -251,10 +259,48 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <p className="text-muted-foreground">Fuel Cost Reduction</p>
             </div>
             <div>
-              <div className="text-3xl font-bold text-accent mb-2">9</div>
-              <p className="text-muted-foreground">Stops in Free Tier</p>
+              <div className="text-3xl font-bold text-accent mb-2">50+</div>
+              <p className="text-muted-foreground">Stops (Pro)</p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ZipRoute vs Google Maps Comparison */}
+      <section className="container mx-auto px-4 py-16">
+        <h2 className="text-3xl font-bold text-center text-foreground mb-8">ZipRoute vs. Google Maps</h2>
+        <div className="max-w-3xl mx-auto overflow-hidden rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="text-left px-6 py-4 font-semibold text-foreground">Feature</th>
+                <th className="text-center px-6 py-4 font-semibold text-muted-foreground">Google Maps</th>
+                <th className="text-center px-6 py-4 font-semibold text-accent">ZipRoute</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <tr>
+                <td className="px-6 py-4 text-foreground">Max stops</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">10</td>
+                <td className="px-6 py-4 text-center font-semibold text-accent">50+</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Route optimization</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">None</td>
+                <td className="px-6 py-4 text-center font-semibold text-accent">Mathematical shortest path</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Live traffic</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">Yes</td>
+                <td className="px-6 py-4 text-center font-semibold text-accent">Yes</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Export to Maps</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">N/A</td>
+                <td className="px-6 py-4 text-center font-semibold text-accent">One-click</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -271,22 +317,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <span className="text-xl font-bold text-foreground">ZipRoute</span>
             </div>
             <div className="flex flex-wrap justify-center gap-6 text-sm">
-              <button onClick={() => openModal('faq')} className="text-muted-foreground hover:text-accent transition-colors">
-                FAQ
-              </button>
-              <button onClick={() => openModal('privacy')} className="text-muted-foreground hover:text-accent transition-colors">
-                Privacy Policy
-              </button>
-              <button onClick={() => openModal('terms')} className="text-muted-foreground hover:text-accent transition-colors">
-                Terms of Service
-              </button>
-              <button onClick={() => openModal('contact')} className="text-muted-foreground hover:text-accent transition-colors">
-                Contact
-              </button>
+              <button onClick={() => openModal('faq')} className="text-muted-foreground hover:text-accent transition-colors">FAQ</button>
+              <button onClick={() => openModal('privacy')} className="text-muted-foreground hover:text-accent transition-colors">Privacy Policy</button>
+              <button onClick={() => openModal('terms')} className="text-muted-foreground hover:text-accent transition-colors">Terms of Service</button>
+              <button onClick={() => openModal('contact')} className="text-muted-foreground hover:text-accent transition-colors">Contact</button>
             </div>
           </div>
           
-          {/* Social Links */}
           <div className="flex justify-center gap-4 mt-6">
             <a href="mailto:support@ziproute.app" className="text-muted-foreground hover:text-accent transition-colors p-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -308,43 +345,19 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       </footer>
 
       {/* Global Modals */}
-      <GlobalModal 
-        isOpen={showPricing} 
-        onClose={closeAllModals} 
-        title="Pricing"
-      >
+      <GlobalModal isOpen={showPricing} onClose={closeAllModals} title="Pricing">
         <PricingModal onClose={closeAllModals} onGetStarted={onGetStarted} />
       </GlobalModal>
-
-      <GlobalModal 
-        isOpen={showFAQ} 
-        onClose={closeAllModals} 
-        title="FAQ"
-      >
+      <GlobalModal isOpen={showFAQ} onClose={closeAllModals} title="FAQ">
         <FAQModal onClose={closeAllModals} />
       </GlobalModal>
-
-      <GlobalModal 
-        isOpen={showPrivacy} 
-        onClose={closeAllModals} 
-        title="Privacy Policy"
-      >
+      <GlobalModal isOpen={showPrivacy} onClose={closeAllModals} title="Privacy Policy">
         <PrivacyModal onClose={closeAllModals} />
       </GlobalModal>
-
-      <GlobalModal 
-        isOpen={showTerms} 
-        onClose={closeAllModals} 
-        title="Terms of Service"
-      >
+      <GlobalModal isOpen={showTerms} onClose={closeAllModals} title="Terms of Service">
         <TermsModal onClose={closeAllModals} />
       </GlobalModal>
-
-      <GlobalModal 
-        isOpen={showContact} 
-        onClose={closeAllModals} 
-        title="Contact Us"
-      >
+      <GlobalModal isOpen={showContact} onClose={closeAllModals} title="Contact Us">
         <ContactModal onClose={closeAllModals} />
       </GlobalModal>
     </div>

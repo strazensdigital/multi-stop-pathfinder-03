@@ -9,10 +9,12 @@ interface UsageStats {
   estimatedMinutesSaved: number;
 }
 
-// Time saved scales super-linearly with stops: manually optimizing
-// route order gets exponentially harder as stops increase.
-// Formula: 0.5 × stops^1.5 minutes per optimization.
-const timeSavedForStops = (stops: number) => 0.5 * Math.pow(stops, 1.5);
+// More accurate formula: reflects time saved vs manual Google Maps entry
+// (numberOfStops * 2) + (numberOfStops * log10(numberOfStops) * 1.5)
+const timeSavedForStops = (stops: number) => {
+  if (stops <= 1) return 0;
+  return (stops * 2) + (stops * Math.log10(stops) * 1.5);
+};
 
 export function UsageDashboard() {
   const { user } = useAuth();
@@ -39,7 +41,7 @@ export function UsageDashboard() {
       }
       const avgStops = totalOptimizations > 0 ? totalStops / totalOptimizations : 0;
 
-      setStats({ totalOptimizations, avgStops, estimatedMinutesSaved });
+      setStats({ totalOptimizations, avgStops, estimatedMinutesSaved: Math.round(estimatedMinutesSaved * 10) / 10 });
     })();
   }, [user]);
 
@@ -48,7 +50,7 @@ export function UsageDashboard() {
   const timeLabel =
     stats.estimatedMinutesSaved >= 60
       ? `${(stats.estimatedMinutesSaved / 60).toFixed(1)} hrs`
-      : `${stats.estimatedMinutesSaved} min`;
+      : `${stats.estimatedMinutesSaved.toFixed(1)} min`;
 
   return (
     <div className="grid grid-cols-2 gap-2.5">
@@ -57,10 +59,10 @@ export function UsageDashboard() {
         <p className="text-lg font-bold text-foreground">{stats.totalOptimizations}</p>
         <p className="text-[11px] text-muted-foreground leading-tight">Routes optimized</p>
       </div>
-      <div className="rounded-lg border border-border/40 bg-muted/30 p-3 text-center">
+      <div className="rounded-lg border border-border/40 bg-muted/30 p-3 text-center overflow-hidden">
         <Clock className="h-4 w-4 mx-auto mb-1 text-accent" />
-        <p className="text-lg font-bold text-foreground">~{timeLabel}</p>
-        <p className="text-[11px] text-muted-foreground leading-tight">Estimated time saved</p>
+        <p className="text-lg font-bold text-foreground truncate">~{timeLabel}</p>
+        <p className="text-[11px] text-muted-foreground leading-tight whitespace-nowrap overflow-hidden text-ellipsis">Estimated time saved</p>
       </div>
     </div>
   );

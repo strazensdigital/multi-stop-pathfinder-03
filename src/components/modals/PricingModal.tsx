@@ -20,7 +20,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onGetStarted }) =>
 
   const handleCheckout = async (priceId: string) => {
     if (!user) {
-      onGetStarted(); // opens auth dialog
+      onGetStarted();
       return;
     }
     setCheckingOut(priceId);
@@ -79,7 +79,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onGetStarted }) =>
               <div className="text-sm text-muted-foreground">or $69 / year (save ~40%)</div>
             </div>
             <ul className="space-y-3 mb-6">
-              {["Unlimited stops", "Lock a specific stop (e.g., fixed final destination)", "Priority email support", "Early access to AI address import (beta)"].map((item) => (
+              {["Unlimited stops", "Beat Google's 10-stop limit", "Priority email support", "Early access to AI address import (beta)"].map((item) => (
                 <li key={item} className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
                   <span className="text-sm">{item}</span>
@@ -126,7 +126,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onGetStarted }) =>
               <span className="text-3xl font-bold text-muted-foreground">Custom</span>
             </div>
             <ul className="space-y-3 mb-6">
-              {["Team seats & shared routes", "Bulk CSV import", "API & webhooks", "White-label options"].map((item) => (
+              {["Fuel Savings Calculator", "SMS Route to Phone", "Printable Driver Manifests", "API & webhooks"].map((item) => (
                 <li key={item} className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
                   <span className="text-sm text-muted-foreground">{item}</span>
