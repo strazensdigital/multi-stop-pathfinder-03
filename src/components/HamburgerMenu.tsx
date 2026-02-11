@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Menu, X, MapPin, Trash2, Loader2, CreditCard, Crown, Star, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -11,6 +11,44 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { UsageDashboard } from "@/components/UsageDashboard";
 
+// Mapbox token + geocoding helpers (duplicated inline to avoid coupling)
+const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1Ijoia3VsbHVtdXV1IiwiYSI6ImNtZTZqb2d0ODEzajYybHB1Mm0xbzBva2YifQ.zDdnxTggkS-qfrNIoLJwTw";
+const getToken = () => localStorage.getItem("MAPBOX_TOKEN") || DEFAULT_MAPBOX_TOKEN;
+
+let bmGeoCache: { country: string; longitude: number; latitude: number } | null = null;
+
+async function ensureGeoCache() {
+  if (bmGeoCache) return;
+  try {
+    const res = await fetch("https://ipapi.co/json/");
+    if (res.ok) {
+      const d = await res.json();
+      bmGeoCache = { country: d.country_code?.toLowerCase() || "us", longitude: d.longitude, latitude: d.latitude };
+    }
+  } catch { /* fall through */ }
+}
+
+type GeoSuggestion = { place_name: string; center: [number, number] };
+
+async function fetchAddressSuggestions(query: string): Promise<GeoSuggestion[]> {
+  if (!query.trim() || query.trim().length < 3) return [];
+  await ensureGeoCache();
+  const country = bmGeoCache?.country || "us,ca";
+  const proximity = bmGeoCache ? `&proximity=${bmGeoCache.longitude},${bmGeoCache.latitude}` : "";
+  const encoded = encodeURIComponent(query.trim());
+  const res = await fetch(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?autocomplete=true&limit=5&types=address,poi,place,locality,neighborhood&country=${country}${proximity}&access_token=${getToken()}`
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data?.features || []).map((f: any) => ({ place_name: f.place_name, center: f.center }));
+}
+
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {
+  let tid: NodeJS.Timeout;
+  return ((...args: Parameters<T>) => { clearTimeout(tid); tid = setTimeout(() => func(...args), wait); }) as T;
+}
+
 interface HamburgerMenuProps {
   onLoadRoute?: (stops: any[]) => void;
 }
@@ -21,6 +59,37 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
   const [addingBookmark, setAddingBookmark] = useState(false);
   const [newNickname, setNewNickname] = useState("");
   const [newAddress, setNewAddress] = useState("");
+  const [addressSuggestions, setAddressSuggestions] = useState<GeoSuggestion[]>([]);
+  const [showAddrSuggestions, setShowAddrSuggestions] = useState(false);
+  const [selectedCoords, setSelectedCoords] = useState<[number, number] | null>(null);
+  const addrInputRef = useRef<HTMLInputElement>(null);
+
+  const debouncedFetch = useMemo(
+    () => debounce(async (q: string) => {
+      const results = await fetchAddressSuggestions(q);
+      setAddressSuggestions(results);
+      setShowAddrSuggestions(results.length > 0);
+    }, 300),
+    []
+  );
+
+  const handleAddressChange = useCallback((val: string) => {
+    setNewAddress(val);
+    setSelectedCoords(null);
+    if (val.trim().length >= 3) {
+      debouncedFetch(val);
+    } else {
+      setAddressSuggestions([]);
+      setShowAddrSuggestions(false);
+    }
+  }, [debouncedFetch]);
+
+  const selectSuggestion = useCallback((s: GeoSuggestion) => {
+    setNewAddress(s.place_name);
+    setSelectedCoords(s.center);
+    setAddressSuggestions([]);
+    setShowAddrSuggestions(false);
+  }, []);
   const { user, profile, signOut } = useAuth();
   const { savedRoutes, loadingRoutes, fetchRoutes, deleteRoute } = useRoutes();
   const { bookmarks, loadingBookmarks, fetchBookmarks, addBookmark, deleteBookmark } = useBookmarks();
@@ -153,20 +222,39 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
                             onChange={(e) => setNewNickname(e.target.value)}
                             className="min-h-[44px]"
                           />
-                          <Input
-                            placeholder="Full address"
-                            value={newAddress}
-                            onChange={(e) => setNewAddress(e.target.value)}
-                            className="min-h-[44px]"
-                          />
+                          <div className="relative">
+                            <Input
+                              ref={addrInputRef}
+                              placeholder="Full address"
+                              value={newAddress}
+                              onChange={(e) => handleAddressChange(e.target.value)}
+                              onFocus={() => { if (addressSuggestions.length) setShowAddrSuggestions(true); }}
+                              onBlur={() => { setTimeout(() => setShowAddrSuggestions(false), 200); }}
+                              className="min-h-[44px]"
+                            />
+                            {showAddrSuggestions && addressSuggestions.length > 0 && (
+                              <ul className="absolute z-50 left-0 right-0 top-full mt-1 rounded-md border border-border bg-popover shadow-md max-h-48 overflow-y-auto">
+                                {addressSuggestions.map((s, i) => (
+                                  <li
+                                    key={i}
+                                    className="px-3 py-2 text-sm cursor-pointer hover:bg-muted truncate"
+                                    onMouseDown={() => selectSuggestion(s)}
+                                  >
+                                    {s.place_name}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
                           <Button
                             className="w-full min-h-[44px] btn-hero"
                             disabled={!newNickname.trim() || !newAddress.trim()}
                             onClick={async () => {
-                              const ok = await addBookmark(newNickname, newAddress);
+                              const ok = await addBookmark(newNickname, newAddress, selectedCoords?.[1], selectedCoords?.[0]);
                               if (ok) {
                                 setNewNickname("");
                                 setNewAddress("");
+                                setSelectedCoords(null);
                                 setAddingBookmark(false);
                               }
                             }}

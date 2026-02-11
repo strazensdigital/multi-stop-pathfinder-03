@@ -150,7 +150,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 text-center">
+      <section className="container mx-auto px-5 py-20 text-center">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6">
             Route 20+ Stops in Seconds.
@@ -159,21 +159,23 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Type your stops, tap once, save 2 hours of driving. Beat Google Maps' 10-stop limit with mathematical route optimization.
           </p>
-          <Button 
-            onClick={onGetStarted}
-            size="lg" 
-            className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold mr-4"
-          >
-            Start Planning for Free
-          </Button>
-          <Button 
-            onClick={() => openModal('pricing')}
-            size="lg" 
-            variant="outline"
-            className="px-8 py-4 text-lg font-semibold"
-          >
-            See Pricing
-          </Button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button 
+              onClick={onGetStarted}
+              size="lg" 
+              className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold w-full sm:w-auto"
+            >
+              Start Planning for Free
+            </Button>
+            <Button 
+              onClick={() => openModal('pricing')}
+              size="lg" 
+              variant="outline"
+              className="px-8 py-4 text-lg font-semibold w-full sm:w-auto"
+            >
+              See Pricing
+            </Button>
+          </div>
         </div>
       </section>
 
