@@ -3,7 +3,9 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 const ALLOWED_ORIGINS = [
   "https://ziprouter.lovable.app",
+  "https://zippyrouter.lovable.app",
   "https://zio-router.lovable.app",
+  "https://id-preview--4dfbc1a6-78bd-4a18-a9b6-44bc36211fcc.lovable.app",
   "http://localhost:5173",
   "http://localhost:3000",
 ];
