@@ -150,13 +150,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-5 py-10 sm:py-20 text-center">
+      <section className="container mx-auto px-5 py-6 sm:py-20 text-center">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold text-foreground mb-4 md:mb-6 leading-tight">
-            Route 20+ Stops in Seconds. <span className="text-accent">Save 2h Daily.</span>
+          <h1 className="text-2xl sm:text-5xl md:text-6xl font-bold text-foreground mb-2 md:mb-4 leading-snug">
+            Route 20+ Stops in Seconds.
           </h1>
-          <p className="text-base sm:text-xl text-muted-foreground mb-6 md:mb-8 max-w-2xl mx-auto">
-            Beat Google Maps' 10-stop limit with one-click route optimization.
+          <p className="text-2xl sm:text-4xl md:text-5xl font-bold text-accent mb-3 md:mb-6 leading-snug">
+            Save 2 Hours of Driving — One Click.
+          </p>
+          <p className="text-sm sm:text-lg text-muted-foreground mb-4 md:mb-8 max-w-2xl mx-auto">
+            Beat Google Maps' 10-stop limit. Optimize your entire day instantly.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button 
@@ -179,7 +182,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       </section>
 
       {/* Rule of 3 Section */}
-      <section className="container mx-auto px-4 py-16">
+      <section className="container mx-auto px-4 pt-8 sm:pt-16 pb-16">
         <h2 className="text-3xl font-bold text-center text-foreground mb-12">How It Works</h2>
         <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
           <div className="text-center">
