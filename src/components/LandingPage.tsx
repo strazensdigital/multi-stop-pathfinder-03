@@ -150,7 +150,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-5 py-6 sm:py-20 text-center">
+      <section className="container mx-auto px-5 flex items-center justify-center min-h-[calc(100vh-88px)] text-center">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-2xl sm:text-5xl md:text-6xl font-bold text-foreground mb-2 md:mb-4 leading-snug">
             Route 20+ Stops in Seconds.
