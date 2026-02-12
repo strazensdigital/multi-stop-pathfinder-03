@@ -27,7 +27,25 @@ export function AiPasteBox({ bookmarks, onAddressesExtracted }: AiPasteBoxProps)
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Check for structured limit errors from the edge function
+        if (error.message?.includes("daily_limit") || error.message?.includes("monthly_limit")) {
+          try {
+            const errData = JSON.parse(error.message);
+            toast.error(errData.message || "AI usage limit reached.");
+          } catch {
+            toast.error("AI usage limit reached. Try again later.");
+          }
+          return;
+        }
+        throw error;
+      }
+
+      // Handle limit errors returned in data (when status is 429)
+      if (data?.error === "daily_limit" || data?.error === "monthly_limit") {
+        toast.error(data.message);
+        return;
+      }
 
       const addresses = data?.addresses as Array<{
         address: string;
@@ -43,7 +61,6 @@ export function AiPasteBox({ bookmarks, onAddressesExtracted }: AiPasteBoxProps)
       const startAddr = addresses.find((a) => a.is_start);
       const dests = addresses.filter((a) => !a.is_start);
 
-      // If no explicit start, use first address as start
       const finalStart = startAddr?.address || dests.shift()?.address || "";
       const finalDests = (startAddr ? dests : dests).map((a) => a.address);
 
@@ -53,13 +70,27 @@ export function AiPasteBox({ bookmarks, onAddressesExtracted }: AiPasteBoxProps)
       }
 
       onAddressesExtracted(finalStart, finalDests);
-      toast.success(`Extracted ${(finalDests.length + (finalStart ? 1 : 0))} addresses!`);
+
+      // Show usage feedback toast
+      const usage = data?.usage;
+      if (usage) {
+        const dailyLeft = usage.daily_limit - usage.daily_used;
+        const monthlyLeft = usage.monthly_limit - usage.monthly_used;
+        toast.success(
+          `Extracted ${finalDests.length + (finalStart ? 1 : 0)} addresses! (${dailyLeft} left today, ${monthlyLeft} left this month)`
+        );
+      } else {
+        toast.success(`Extracted ${finalDests.length + (finalStart ? 1 : 0)} addresses!`);
+      }
+
       setText("");
       setOpen(false);
     } catch (e: any) {
       console.error("AI extract error:", e);
       if (e?.message?.includes("429") || e?.status === 429) {
-        toast.error("Rate limit hit. Please wait a moment and try again.");
+        toast.error("AI usage limit reached. Try again later.");
+      } else if (e?.message?.includes("401") || e?.status === 401) {
+        toast.error("Please log in to use AI extraction.");
       } else if (e?.message?.includes("402") || e?.status === 402) {
         toast.error("AI credits exhausted.");
       } else {

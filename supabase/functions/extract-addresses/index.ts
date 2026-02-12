@@ -1,18 +1,126 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+const ALLOWED_ORIGINS = [
+  "https://ziprouter.lovable.app",
+  "https://zio-router.lovable.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("origin") || "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  };
+}
+
+const MAX_INPUT_LENGTH = 5000;
+const AI_DAILY_LIMIT = 5;
+const AI_MONTHLY_LIMIT = 24;
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const supabaseClient = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } }
+  );
+
   try {
+    // Auth check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    if (userError || !userData.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const userId = userData.user.id;
+
+    // Check if user is manual (unlimited AI)
+    const { data: profileData } = await supabaseClient
+      .from("profiles")
+      .select("plan, plan_source")
+      .eq("id", userId)
+      .single();
+
+    const isManual = profileData?.plan_source === "manual";
+    const isPro = profileData?.plan === "pro";
+
+    if (!isManual) {
+      // Check daily + monthly AI usage limits
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+      const { count: dailyCount } = await supabaseClient
+        .from("usage_events")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("event_type", "ai_extract")
+        .gte("created_at", startOfDay);
+
+      const { count: monthlyCount } = await supabaseClient
+        .from("usage_events")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("event_type", "ai_extract")
+        .gte("created_at", startOfMonth);
+
+      if ((dailyCount ?? 0) >= AI_DAILY_LIMIT) {
+        return new Response(JSON.stringify({
+          error: "daily_limit",
+          message: "You've used all 5 AI extractions for today. Try again tomorrow!",
+          daily_used: dailyCount,
+          monthly_used: monthlyCount,
+          daily_limit: AI_DAILY_LIMIT,
+          monthly_limit: AI_MONTHLY_LIMIT,
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if ((monthlyCount ?? 0) >= AI_MONTHLY_LIMIT) {
+        return new Response(JSON.stringify({
+          error: "monthly_limit",
+          message: "You've used all 24 AI extractions for this month. Resets next month!",
+          daily_used: dailyCount,
+          monthly_used: monthlyCount,
+          daily_limit: AI_DAILY_LIMIT,
+          monthly_limit: AI_MONTHLY_LIMIT,
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const { text, bookmarks } = await req.json();
     if (!text || typeof text !== "string") {
       return new Response(JSON.stringify({ error: "text is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Input length cap
+    if (text.length > MAX_INPUT_LENGTH) {
+      return new Response(JSON.stringify({ error: `Text too long. Maximum ${MAX_INPUT_LENGTH} characters.` }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -112,6 +220,47 @@ Rules:
     }
 
     const parsed = JSON.parse(toolCall.function.arguments);
+
+    // Record successful AI usage
+    if (!isManual) {
+      await supabaseClient.from("usage_events").insert({
+        user_id: userId,
+        event_type: "ai_extract",
+        meta: { address_count: parsed.addresses?.length ?? 0 },
+      });
+
+      // Get updated counts for response
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+      const { count: newDaily } = await supabaseClient
+        .from("usage_events")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("event_type", "ai_extract")
+        .gte("created_at", startOfDay);
+
+      const { count: newMonthly } = await supabaseClient
+        .from("usage_events")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("event_type", "ai_extract")
+        .gte("created_at", startOfMonth);
+
+      return new Response(JSON.stringify({
+        ...parsed,
+        usage: {
+          daily_used: newDaily,
+          monthly_used: newMonthly,
+          daily_limit: AI_DAILY_LIMIT,
+          monthly_limit: AI_MONTHLY_LIMIT,
+        },
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
