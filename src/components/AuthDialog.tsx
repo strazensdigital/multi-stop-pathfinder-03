@@ -118,7 +118,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
       <DialogContent className="sm:max-w-md bg-background/95 backdrop-blur-sm border-border/40">
         <DialogHeader>
           <DialogTitle className="text-center text-xl font-semibold">
-            Welcome to ZipRoute
+            Welcome to ZippyRouter
           </DialogTitle>
           <DialogDescription className="text-center text-muted-foreground">
             Sign in with your username and password to get started

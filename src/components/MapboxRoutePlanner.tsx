@@ -200,9 +200,9 @@ const SortableStopItem: React.FC<{
       onClick={() => onRowClick(stop)}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0 overflow-hidden">
           <button
-            className="mt-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground"
+            className="mt-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground shrink-0"
             {...attributes}
             {...listeners}
             onClick={(e) => e.stopPropagation()}
@@ -216,8 +216,8 @@ const SortableStopItem: React.FC<{
           >
             {stop.order === 0 ? 'S' : stop.order}
           </span>
-          <div className="min-w-0">
-            <div className="font-medium text-foreground">{shortLabel(stop.label)}</div>
+          <div className="min-w-0 overflow-hidden">
+            <div className="font-medium text-foreground truncate">{shortLabel(stop.label)}</div>
             <div className="text-sm text-muted-foreground mt-0.5 truncate">{stop.label}</div>
           </div>
         </div>
@@ -907,7 +907,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
       {/* App Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-baseline gap-3">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">ZipRoute</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">ZippyRouter</h1>
           <span className="text-sm font-medium text-accent">Beat the 10-stop limit</span>
         </div>
       </div>
@@ -1255,7 +1255,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Lock className="h-5 w-5 text-accent" />
-              {locked ? "Daily limit reached" : "Enjoying ZipRoute?"}
+              {locked ? "Daily limit reached" : "Enjoying ZippyRouter?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {locked
