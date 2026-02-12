@@ -95,10 +95,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           <div className="flex items-center gap-3">
             <img 
               src={roadLogo} 
-              alt="ZipRoute logo" 
+               alt="ZippyRouter logo" 
               className="w-10 h-10 object-contain"
             />
-            <span className="text-2xl font-bold text-foreground">ZipRoute</span>
+            <span className="text-2xl font-bold text-foreground">ZippyRouter</span>
           </div>
           <nav className="hidden md:flex items-center gap-8">
             <button onClick={() => openModal('home')} className="text-foreground hover:text-accent transition-colors">
@@ -112,7 +112,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle className="text-2xl font-bold">How ZipRoute Works</DialogTitle>
+                  <DialogTitle className="text-2xl font-bold">How ZippyRouter Works</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-6 py-4">
                   <div className="flex items-start gap-4">
@@ -150,14 +150,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-5 py-20 text-center">
+      <section className="container mx-auto px-5 py-10 sm:py-20 text-center">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6">
-            Route 20+ Stops in Seconds.
-            <span className="block text-accent mt-2">Save 2 Hours of Driving Every Day.</span>
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold text-foreground mb-4 md:mb-6 leading-tight">
+            Route 20+ Stops in Seconds. <span className="text-accent">Save 2h Daily.</span>
           </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Type your stops, tap once, save 2 hours of driving. Beat Google Maps' 10-stop limit with mathematical route optimization.
+          <p className="text-base sm:text-xl text-muted-foreground mb-6 md:mb-8 max-w-2xl mx-auto">
+            Beat Google Maps' 10-stop limit with one-click route optimization.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button 
@@ -270,14 +269,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
 
       {/* ZipRoute vs Google Maps Comparison */}
       <section className="container mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold text-center text-foreground mb-8">ZipRoute vs. Google Maps</h2>
+        <h2 className="text-3xl font-bold text-center text-foreground mb-8">ZippyRouter vs. Google Maps</h2>
         <div className="max-w-3xl mx-auto overflow-hidden rounded-lg border border-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50">
                 <th className="text-left px-6 py-4 font-semibold text-foreground">Feature</th>
                 <th className="text-center px-6 py-4 font-semibold text-muted-foreground">Google Maps</th>
-                <th className="text-center px-6 py-4 font-semibold text-accent">ZipRoute</th>
+                <th className="text-center px-6 py-4 font-semibold text-accent">ZippyRouter</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -313,10 +312,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <div className="flex items-center gap-3">
               <img 
                 src={roadLogo} 
-                alt="ZipRoute logo" 
+                alt="ZippyRouter logo" 
                 className="w-8 h-8 object-contain"
               />
-              <span className="text-xl font-bold text-foreground">ZipRoute</span>
+              <span className="text-xl font-bold text-foreground">ZippyRouter</span>
             </div>
             <div className="flex flex-wrap justify-center gap-6 text-sm">
               <button onClick={() => openModal('faq')} className="text-muted-foreground hover:text-accent transition-colors">FAQ</button>
@@ -327,7 +326,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           </div>
           
           <div className="flex justify-center gap-4 mt-6">
-            <a href="mailto:support@ziproute.app" className="text-muted-foreground hover:text-accent transition-colors p-2">
+            <a href="mailto:support@zippyrouter.com" className="text-muted-foreground hover:text-accent transition-colors p-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
                 <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
@@ -341,7 +340,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           </div>
           
           <div className="text-center text-muted-foreground text-sm mt-8">
-            © 2025 ZipRoute. All rights reserved.
+            © 2025 ZippyRouter. All rights reserved.
           </div>
         </div>
       </footer>

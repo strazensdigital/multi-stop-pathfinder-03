@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Cookie } from "lucide-react";
 
-const CONSENT_KEY = "ziproute_cookie_consent";
+const CONSENT_KEY = "zippyrouter_cookie_consent";
 
 export function CookieConsent() {
   const [visible, setVisible] = useState(false);

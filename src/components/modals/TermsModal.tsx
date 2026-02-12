@@ -16,9 +16,16 @@ const TermsModal: React.FC<TermsModalProps> = ({ onClose }) => {
 
       <div className="space-y-6 text-sm">
         <section>
+          <h3 className="text-lg font-semibold mb-2 text-accent">Operator</h3>
+          <p className="text-muted-foreground">
+            ZippyRouter is a product of Strazens Digital.
+          </p>
+        </section>
+
+        <section>
           <h3 className="text-lg font-semibold mb-2 text-accent">Acceptance</h3>
           <p className="text-muted-foreground">
-            By using ZipRoute you agree to these Terms.
+            By using ZippyRouter you agree to these Terms.
           </p>
         </section>
 
@@ -81,7 +88,7 @@ const TermsModal: React.FC<TermsModalProps> = ({ onClose }) => {
         <section>
           <h3 className="text-lg font-semibold mb-2 text-accent">Contact</h3>
           <p className="text-muted-foreground">
-            legal@ziproute.app
+            legal@zippyrouter.com
           </p>
         </section>
       </div>

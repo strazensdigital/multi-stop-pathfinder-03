@@ -8,7 +8,7 @@ interface FAQModalProps {
 const FAQModal: React.FC<FAQModalProps> = ({ onClose }) => {
   const faqs = [
     {
-      question: "What does ZipRoute do?",
+      question: "What does ZippyRouter do?",
       answer: "It reorders your stops to minimize total travel time (TSP-style optimization), then hands off directions to your maps app."
     },
     {
@@ -45,7 +45,7 @@ const FAQModal: React.FC<FAQModalProps> = ({ onClose }) => {
     },
     {
       question: "Where can I get help?",
-      answer: "Use Contact in the footer or email support@yourdomain.com."
+      answer: "Use Contact in the footer or email support@zippyrouter.com."
     }
   ];
 

@@ -18,7 +18,7 @@ const PrivacyModal: React.FC<PrivacyModalProps> = ({ onClose }) => {
         <section>
           <h3 className="text-lg font-semibold mb-2 text-accent">Who we are</h3>
           <p className="text-muted-foreground">
-            ZipRoute is operated from Ontario, Canada. Contact: privacy@ziproute.app
+            ZippyRouter is a product of Strazens Digital, operated from Ontario, Canada. Contact: privacy@zippyrouter.com
           </p>
         </section>
 
