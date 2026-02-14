@@ -48,7 +48,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onGetStarted }) =>
               <span className="text-muted-foreground"> / forever</span>
             </div>
             <ul className="space-y-3 mb-6">
-              {["Up to 9 stops per route", "Fast route optimization (Mapbox)", "Export directions to your maps app", "Email verification required after 1–2 uses"].map((item) => (
+              {["Up to 9 stops per route", "Fast route optimization (Mapbox)", "Export directions to your maps app"].map((item) => (
                 <li key={item} className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
                   <span className="text-sm">{item}</span>

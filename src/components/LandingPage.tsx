@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { CheckCircle, Zap, MapPin, Route, Clock, Upload, MousePointerClick, ExternalLink } from "lucide-react";
+import { CheckCircle, Zap, MapPin, Route, Clock, Upload, MousePointerClick, ExternalLink, X, Check } from "lucide-react";
 import roadLogo from "@/assets/road-logo.png";
+import heroPhoneMockup from "@/assets/hero-phone-mockup.png";
 import GlobalModal from "@/components/modals/GlobalModal";
 import PricingModal from "@/components/modals/PricingModal";
 import FAQModal from "@/components/modals/FAQModal";
@@ -95,7 +96,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           <div className="flex items-center gap-3">
             <img 
               src={roadLogo} 
-               alt="ZippyRouter logo" 
+              alt="ZippyRouter logo" 
               className="w-10 h-10 object-contain"
             />
             <span className="text-2xl font-bold text-foreground">ZippyRouter</span>
@@ -150,33 +151,41 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-5 flex items-center justify-center min-h-[calc(100vh-88px)] text-center">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl sm:text-5xl md:text-6xl font-bold text-foreground mb-2 md:mb-4 leading-snug">
-            Route 20+ Stops in Seconds.
-          </h1>
-          <p className="text-2xl sm:text-4xl md:text-5xl font-bold text-accent mb-3 md:mb-6 leading-snug">
-            Save 2 Hours of Driving — One Click.
-          </p>
-          <p className="text-sm sm:text-lg text-muted-foreground mb-4 md:mb-8 max-w-2xl mx-auto">
-            Beat Google Maps' 10-stop limit. Optimize your entire day instantly.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button 
-              onClick={onGetStarted}
-              size="lg" 
-              className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold w-full sm:w-auto"
-            >
-              Start Planning for Free
-            </Button>
-            <Button 
-              onClick={() => openModal('pricing')}
-              size="lg" 
-              variant="outline"
-              className="px-8 py-4 text-lg font-semibold w-full sm:w-auto"
-            >
-              See Pricing
-            </Button>
+      <section className="container mx-auto px-5 flex items-center justify-center min-h-[calc(100vh-88px)]">
+        <div className="flex flex-col md:flex-row items-center gap-8 md:gap-16 max-w-6xl mx-auto">
+          {/* Text */}
+          <div className="flex-1 text-center md:text-left">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 md:mb-4 leading-tight">
+              Paste Your List. Optimize Your Route. Finish Your Day Early.
+            </h1>
+            <p className="text-sm sm:text-base md:text-lg text-muted-foreground mb-6 md:mb-8 max-w-xl mx-auto md:mx-0">
+              The AI-powered route planner that turns messy text into professional delivery routes. Break Google's 10-stop limit and optimize 50+ addresses in one click.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4">
+              <Button 
+                onClick={onGetStarted}
+                size="lg" 
+                className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold w-full sm:w-auto"
+              >
+                Start Planning for Free
+              </Button>
+              <Button 
+                onClick={() => openModal('pricing')}
+                size="lg" 
+                variant="outline"
+                className="px-8 py-4 text-lg font-semibold w-full sm:w-auto"
+              >
+                See Pricing
+              </Button>
+            </div>
+          </div>
+          {/* Phone Mockup */}
+          <div className="flex-shrink-0 w-48 sm:w-56 md:w-72">
+            <img 
+              src={heroPhoneMockup} 
+              alt="ZippyRouter app showing an optimized route with numbered map pins" 
+              className="w-full h-auto drop-shadow-2xl"
+            />
           </div>
         </div>
       </section>
@@ -206,6 +215,61 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <h3 className="text-xl font-bold mb-2">Export</h3>
             <p className="text-muted-foreground">Send to Google/Apple Maps.</p>
           </div>
+        </div>
+      </section>
+
+      {/* Why Pros Switch — Comparison Table */}
+      <section className="container mx-auto px-4 py-16">
+        <h2 className="text-3xl font-bold text-center text-foreground mb-3">Why Pros Switch from Google Maps</h2>
+        <p className="text-center text-muted-foreground mb-10 max-w-2xl mx-auto">
+          Google Maps is great for getting from A to B. But when you have 30 stops and a deadline, you need a tool built for the job.
+        </p>
+        <div className="max-w-3xl mx-auto overflow-hidden rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="text-left px-6 py-4 font-semibold text-foreground">Feature</th>
+                <th className="text-center px-6 py-4 font-semibold text-muted-foreground">Google Maps</th>
+                <th className="text-center px-6 py-4 font-semibold text-accent">ZippyRouter</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <tr>
+                <td className="px-6 py-4 text-foreground">Max stops</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">10</td>
+                <td className="px-6 py-4 text-center font-semibold text-accent">50+</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Route optimization</td>
+                <td className="px-6 py-4 text-center"><X className="w-5 h-5 text-destructive inline" /></td>
+                <td className="px-6 py-4 text-center"><Check className="w-5 h-5 text-accent inline" /> AI sequencing</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Address input</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">Manual, one-by-one</td>
+                <td className="px-6 py-4 text-center font-semibold text-accent">Paste any text list</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Live traffic</td>
+                <td className="px-6 py-4 text-center"><Check className="w-5 h-5 text-muted-foreground inline" /></td>
+                <td className="px-6 py-4 text-center"><Check className="w-5 h-5 text-accent inline" /></td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Export to Maps app</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">N/A</td>
+                <td className="px-6 py-4 text-center font-semibold text-accent">One-click</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* PAS Narrative */}
+      <section className="bg-muted/30 py-16">
+        <div className="container mx-auto px-4 max-w-3xl text-center">
+          <p className="text-base sm:text-lg text-foreground leading-relaxed">
+            Still manually typing every stop into Google Maps? One typo sends you 20 minutes across town. Wasted gas, late deliveries, and the stress of managing 30 stops in an app built for 10. <span className="font-semibold text-accent">ZippyRouter turns your messy text into a professional route in one click.</span>
+          </p>
         </div>
       </section>
 
@@ -267,44 +331,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <p className="text-muted-foreground">Stops (Pro)</p>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* ZipRoute vs Google Maps Comparison */}
-      <section className="container mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold text-center text-foreground mb-8">ZippyRouter vs. Google Maps</h2>
-        <div className="max-w-3xl mx-auto overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-muted/50">
-                <th className="text-left px-6 py-4 font-semibold text-foreground">Feature</th>
-                <th className="text-center px-6 py-4 font-semibold text-muted-foreground">Google Maps</th>
-                <th className="text-center px-6 py-4 font-semibold text-accent">ZippyRouter</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              <tr>
-                <td className="px-6 py-4 text-foreground">Max stops</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">10</td>
-                <td className="px-6 py-4 text-center font-semibold text-accent">50+</td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 text-foreground">Route optimization</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">None</td>
-                <td className="px-6 py-4 text-center font-semibold text-accent">Mathematical shortest path</td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 text-foreground">Live traffic</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">Yes</td>
-                <td className="px-6 py-4 text-center font-semibold text-accent">Yes</td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 text-foreground">Export to Maps</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">N/A</td>
-                <td className="px-6 py-4 text-center font-semibold text-accent">One-click</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </section>
 
