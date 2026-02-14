@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { CheckCircle, Zap, MapPin, Route, Clock, Upload, MousePointerClick, ExternalLink, X, Check } from "lucide-react";
+import { CheckCircle, Zap, Route, Upload, MousePointerClick, ExternalLink, X, Check } from "lucide-react";
 import roadLogo from "@/assets/road-logo.png";
 import heroPhoneMockup from "@/assets/hero-phone-mockup.png";
 import GlobalModal from "@/components/modals/GlobalModal";
@@ -90,102 +89,46 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="container mx-auto px-4 py-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img 
-              src={roadLogo} 
-              alt="ZippyRouter logo" 
-              className="w-10 h-10 object-contain"
-            />
-            <span className="text-2xl font-bold text-foreground">ZippyRouter</span>
-          </div>
-          <nav className="hidden md:flex items-center gap-8">
-            <button onClick={() => openModal('home')} className="text-foreground hover:text-accent transition-colors">
-              Home
-            </button>
-            <Dialog open={showHowItWorks} onOpenChange={setShowHowItWorks}>
-              <DialogTrigger asChild>
-                <button className="text-foreground hover:text-accent transition-colors">
-                  How It Works
-                </button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle className="text-2xl font-bold">How ZippyRouter Works</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-6 py-4">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-10 h-10 bg-accent text-accent-foreground rounded-full flex items-center justify-center font-bold">1</div>
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Enter Your Locations</h3>
-                      <p className="text-muted-foreground">Add your starting point and destinations. You can enter addresses, business names, or even coordinates.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-10 h-10 bg-accent text-accent-foreground rounded-full flex items-center justify-center font-bold">2</div>
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">AI Optimization</h3>
-                      <p className="text-muted-foreground">Our optimizer analyzes traffic patterns, distances, and road conditions to find the most efficient route order.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-10 h-10 bg-accent text-accent-foreground rounded-full flex items-center justify-center font-bold">3</div>
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Navigate with Ease</h3>
-                      <p className="text-muted-foreground">Get your optimized route opened directly in Google Maps for turn-by-turn navigation. Save time, fuel, and reduce stress.</p>
-                    </div>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-            <button onClick={() => openModal('pricing')} className="text-foreground hover:text-accent transition-colors">
-              Pricing
-            </button>
-            <button onClick={() => openModal('faq')} className="text-foreground hover:text-accent transition-colors">
-              FAQ
-            </button>
-          </nav>
-        </div>
-      </header>
+      {/* Spacer for fixed header */}
+      <div className="pt-14" />
 
       {/* Hero Section */}
       <section className="container mx-auto px-5 flex items-center justify-center min-h-[calc(100vh-88px)]">
-        <div className="flex flex-col md:flex-row items-center gap-8 md:gap-16 max-w-6xl mx-auto">
-          {/* Text */}
-          <div className="flex-1 text-center md:text-left">
-            <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 md:mb-4 leading-tight">
-              Paste Your List. Optimize Your Route. Finish Your Day Early.
-            </h1>
-            <p className="text-sm sm:text-base md:text-lg text-muted-foreground mb-6 md:mb-8 max-w-xl mx-auto md:mx-0">
-              The AI-powered route planner that turns messy text into professional delivery routes. Break Google's 10-stop limit and optimize 50+ addresses in one click.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4">
-              <Button 
-                onClick={onGetStarted}
-                size="lg" 
-                className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold w-full sm:w-auto"
-              >
-                Start Planning for Free
-              </Button>
-              <Button 
-                onClick={() => openModal('pricing')}
-                size="lg" 
-                variant="outline"
-                className="px-8 py-4 text-lg font-semibold w-full sm:w-auto"
-              >
-                See Pricing
-              </Button>
-            </div>
-          </div>
-          {/* Phone Mockup */}
-          <div className="flex-shrink-0 w-48 sm:w-56 md:w-72">
+        <div className="flex flex-col items-center max-w-3xl mx-auto text-center">
+          {/* Headline */}
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 md:mb-4 leading-tight">
+            Paste Your List. Optimize Your Route. Finish Your Day Early.
+          </h1>
+          <p className="text-sm sm:text-base md:text-lg text-muted-foreground mb-6 max-w-xl mx-auto">
+            The AI-powered route planner that turns messy text into professional delivery routes. Break Google's 10-stop limit and optimize 50+ addresses in one click.
+          </p>
+
+          {/* Phone Mockup - between copy and CTA */}
+          <div className="w-40 sm:w-48 md:w-56 mb-6">
             <img 
               src={heroPhoneMockup} 
               alt="ZippyRouter app showing an optimized route with numbered map pins" 
               className="w-full h-auto drop-shadow-2xl"
             />
+          </div>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button 
+              onClick={onGetStarted}
+              size="lg" 
+              className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold w-full sm:w-auto"
+            >
+              Start Planning for Free
+            </Button>
+            <Button 
+              onClick={() => openModal('pricing')}
+              size="lg" 
+              variant="outline"
+              className="px-8 py-4 text-lg font-semibold w-full sm:w-auto"
+            >
+              See Pricing
+            </Button>
           </div>
         </div>
       </section>
