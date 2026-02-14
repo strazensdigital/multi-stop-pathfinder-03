@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, Zap, Route, Upload, MousePointerClick, ExternalLink, X, Check } from "lucide-react";
 import roadLogo from "@/assets/road-logo.png";
-import heroPhoneMockup from "@/assets/hero-phone-mockup.png";
+import heroPhoneBg from "@/assets/hero-phone-bg.png";
 import GlobalModal from "@/components/modals/GlobalModal";
 import PricingModal from "@/components/modals/PricingModal";
 import FAQModal from "@/components/modals/FAQModal";
@@ -22,6 +22,15 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showContact, setShowContact] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+  const heroRef = useRef<HTMLElement>(null);
+
+  // Parallax scroll
+  useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Handle deep linking from URL hash
   useEffect(() => {
@@ -92,56 +101,59 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       {/* Spacer for fixed header */}
       <div className="pt-14" />
 
-      {/* Hero Section */}
-      <section className="container mx-auto px-5 flex items-center justify-center min-h-[calc(100vh-88px)]">
-        {/* Mobile: stacked / Desktop: side-by-side */}
-        <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-16 max-w-5xl mx-auto">
-          {/* Text side */}
-          <div className="flex flex-col items-center lg:items-start text-center lg:text-left flex-1">
-            <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold leading-tight mb-3 md:mb-4">
-              <span className="text-foreground">Paste Your List. </span>
-              <span className="text-accent">Optimize Your Route.</span>
-            </h1>
-            <p className="text-sm sm:text-base md:text-lg text-muted-foreground mb-6 max-w-xl">
-              The AI-powered route planner that turns messy text into professional delivery routes. Break Google's 10-stop limit and optimize 50+ addresses in one click.
-            </p>
+      {/* Three-Layer Hero Section */}
+      <section ref={heroRef} className="relative min-h-[calc(100vh-56px)] overflow-hidden">
+        {/* Layer 1: Background image with parallax */}
+        <div 
+          className="absolute inset-0 z-0"
+          style={{ transform: `translateY(${scrollY * 0.5}px)` }}
+        >
+          <img
+            src={heroPhoneBg}
+            alt=""
+            className="absolute top-0 right-0 h-full w-auto max-w-none object-cover object-right
+              lg:w-[60%] lg:h-[120%] lg:-top-[10%]
+              max-lg:w-full max-lg:left-1/2 max-lg:-translate-x-1/2 max-lg:object-center"
+          />
+          {/* Desktop: fade edges of the image into the background */}
+          <div className="hidden lg:block absolute inset-0 bg-gradient-to-r from-[#1E293B] via-[#1E293B]/90 to-transparent" />
+          <div className="hidden lg:block absolute inset-0 bg-gradient-to-t from-[#1E293B] via-transparent to-[#1E293B]/60" />
+        </div>
 
-            {/* Phone Mockup - mobile only, between copy and CTA */}
-            <div className="w-40 sm:w-48 mb-6 lg:hidden">
-              <img 
-                src={heroPhoneMockup} 
-                alt="ZippyRouter app showing an optimized route with numbered map pins" 
-                className="w-full h-auto drop-shadow-2xl"
-              />
+        {/* Layer 2: Dark translucent overlay */}
+        <div className="absolute inset-0 z-10 bg-[#1E293B]/80" />
+
+        {/* Layer 3: Content on top */}
+        <div className="relative z-20 flex items-center min-h-[calc(100vh-56px)]">
+          <div className="container mx-auto px-5">
+            <div className="max-w-2xl lg:max-w-xl">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 md:mb-6">
+                <span className="text-white">Paste Your List. </span>
+                <span className="text-accent">Optimize Your Route.</span>
+              </h1>
+              <p className="text-sm sm:text-base md:text-lg text-white/70 mb-8 max-w-xl leading-relaxed">
+                The AI-powered route planner that turns messy text into professional delivery routes. Break Google's 10-stop limit and optimize 50+ addresses in one click.
+              </p>
+
+              {/* CTA Buttons */}
+              <div className="flex flex-col sm:flex-row items-start gap-4">
+                <Button 
+                  onClick={onGetStarted}
+                  size="lg" 
+                  className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold w-full sm:w-auto"
+                >
+                  Start Planning for Free
+                </Button>
+                <Button 
+                  onClick={() => openModal('pricing')}
+                  size="lg" 
+                  variant="outline"
+                  className="px-8 py-4 text-lg font-semibold w-full sm:w-auto border-white/30 text-white hover:bg-white/10"
+                >
+                  See Pricing
+                </Button>
+              </div>
             </div>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-              <Button 
-                onClick={onGetStarted}
-                size="lg" 
-                className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold w-full sm:w-auto"
-              >
-                Start Planning for Free
-              </Button>
-              <Button 
-                onClick={() => openModal('pricing')}
-                size="lg" 
-                variant="outline"
-                className="px-8 py-4 text-lg font-semibold w-full sm:w-auto"
-              >
-                See Pricing
-              </Button>
-            </div>
-          </div>
-
-          {/* Phone Mockup - desktop only, right side */}
-          <div className="hidden lg:block flex-shrink-0 w-56 xl:w-64">
-            <img 
-              src={heroPhoneMockup} 
-              alt="ZippyRouter app showing an optimized route with numbered map pins" 
-              className="w-full h-auto drop-shadow-2xl"
-            />
           </div>
         </div>
       </section>
