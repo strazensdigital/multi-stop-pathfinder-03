@@ -31,10 +31,14 @@ const AppPage = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="fixed top-0 right-0 z-50 p-4">
+      <header className="fixed top-0 left-0 right-0 z-50 px-4 py-3 flex items-center justify-between bg-background/95 backdrop-blur-sm border-b border-border/40">
+        <div className="flex items-center gap-2">
+          <img src="/road-logo.png" alt="ZippyRouter logo" className="w-8 h-8 object-contain" />
+          <span className="text-lg font-bold text-foreground">ZippyRouter</span>
+        </div>
         <HamburgerMenu onLoadRoute={handleLoadRoute} />
       </header>
-      <main className="flex-1 px-4 pt-4 pb-16 max-w-[1400px] mx-auto w-full">
+      <main className="flex-1 px-4 pt-16 pb-16 max-w-[1400px] mx-auto w-full">
         <MapboxRoutePlanner routeToLoad={routeToLoad} onRouteLoaded={handleRouteLoaded} />
       </main>
 

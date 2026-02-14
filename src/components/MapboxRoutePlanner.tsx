@@ -31,7 +31,6 @@ const SAMPLE_STOPS = [
   "Royal Ontario Museum, Toronto, ON",
   "St. Lawrence Market, Toronto, ON",
   "Distillery District, Toronto, ON",
-  "High Park, Toronto, ON",
 ];
 
 interface MapboxRoutePlannerProps {
@@ -964,14 +963,14 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
 
   return (
     <section className="w-full pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-0">
-      {/* App Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">ZippyRouter</h1>
-          <span className="text-sm font-medium text-accent">Beat the 10-stop limit</span>
-        </div>
-      </div>
-      <p className="text-sm text-muted-foreground italic mb-6">
+      {/* App Header - Spacer for fixed header */}
+      <div className="pt-8" />
+      
+      {/* Page Headline */}
+      <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center mb-2">
+        Your Optimized Day Starts Here
+      </h2>
+      <p className="text-sm text-muted-foreground text-center italic mb-6">
         Type your stops, tap once, save 2 hours of driving.
       </p>
 
@@ -991,8 +990,17 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
             </div>
           )}
 
+          {/* 10-Stop Badge */}
+          {!isPro && (
+            <div className="text-center">
+              <span className="inline-block text-xs font-semibold bg-accent/15 text-accent px-3 py-1 rounded-full">
+                🔥 Beat the 10-stop limit — upgrade to Pro
+              </span>
+            </div>
+          )}
+
           {/* Card A - Start */}
-          <Card className="shadow-[var(--shadow-elegant)] border-l-2 border-l-accent/30">
+          <Card className="shadow-[var(--shadow-elegant)] border border-border/60">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Start</CardTitle>
             </CardHeader>
@@ -1017,7 +1025,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
           </Card>
 
           {/* Card B - Stops */}
-          <Card className="shadow-[var(--shadow-elegant)] border-l-2 border-l-accent/30">
+          <Card className="shadow-[var(--shadow-elegant)] border border-border/60">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Stops {isPro ? '' : '(2–9)'}</CardTitle>
@@ -1063,7 +1071,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
               </div>
               
               {canAddDestination && (
-                <Button type="button" onClick={addDestination} className="w-full min-h-[44px] btn-hero">
+                <Button type="button" onClick={addDestination} className="w-full min-h-[56px] btn-hero text-base">
                   Add stop
                 </Button>
               )}
@@ -1071,7 +1079,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
           </Card>
 
           {/* Card C - Options */}
-          <Card className="shadow-[var(--shadow-elegant)] border-l-2 border-l-accent/30">
+          <Card className="shadow-[var(--shadow-elegant)] border border-border/60">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Options</CardTitle>
             </CardHeader>
@@ -1111,7 +1119,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
             <Button 
               onClick={stickyBtn.action} 
               disabled={stickyBtn.disabled} 
-              className="w-full min-h-[44px] btn-hero"
+              className="w-full min-h-[56px] btn-hero text-base"
             >
               {stickyBtn.label}
             </Button>
