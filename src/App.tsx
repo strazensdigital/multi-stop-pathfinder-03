@@ -7,7 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import AppPage from "./pages/App";
 import NotFound from "./pages/NotFound";
-import { CookieConsent } from "@/components/CookieConsent";
+
 
 const queryClient = new QueryClient();
 
@@ -20,7 +20,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/app" element={<><CookieConsent /><AppPage /></>} />
+            <Route path="/app" element={<AppPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

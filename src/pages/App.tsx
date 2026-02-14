@@ -4,6 +4,7 @@ import { HamburgerMenu } from "@/components/HamburgerMenu";
 import GlobalModal from "@/components/modals/GlobalModal";
 import PricingModal from "@/components/modals/PricingModal";
 import { AuthDialog } from "@/components/AuthDialog";
+import { CookieConsent } from "@/components/CookieConsent";
 
 const AppPage = () => {
   const [routeToLoad, setRouteToLoad] = useState<any[] | null>(null);
@@ -29,11 +30,11 @@ const AppPage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="fixed top-0 right-0 z-50 p-4">
         <HamburgerMenu onLoadRoute={handleLoadRoute} />
       </header>
-      <main className="px-4 pt-4 pb-16 max-w-[1400px] mx-auto">
+      <main className="flex-1 px-4 pt-4 pb-16 max-w-[1400px] mx-auto w-full">
         <MapboxRoutePlanner routeToLoad={routeToLoad} onRouteLoaded={handleRouteLoaded} />
       </main>
 
@@ -48,6 +49,7 @@ const AppPage = () => {
       </GlobalModal>
 
       <AuthDialog open={showAuth} onOpenChange={setShowAuth} />
+      <CookieConsent />
     </div>
   );
 };

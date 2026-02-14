@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Cookie } from "lucide-react";
 
 const CONSENT_KEY = "zippyrouter_cookie_consent";
 
@@ -25,19 +23,20 @@ export function CookieConsent() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 animate-in slide-in-from-bottom-4 duration-300">
-      <div className="max-w-lg mx-auto rounded-xl border border-border bg-card shadow-lg p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-        <Cookie className="h-5 w-5 text-accent shrink-0 mt-0.5 sm:mt-0" />
-        <p className="text-sm text-muted-foreground flex-1">
-          We use cookies and local storage to improve your experience. By continuing, you agree to our{" "}
-          <a href="#" onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("open-modal", { detail: "privacy" })); }} className="underline text-foreground hover:text-accent">
-            Privacy Policy
-          </a>.
-        </p>
-        <div className="flex gap-2 shrink-0">
-          <Button variant="ghost" size="sm" onClick={decline}>Decline</Button>
-          <Button size="sm" onClick={accept}>Accept</Button>
-        </div>
+    <div className="w-full bg-muted/80 backdrop-blur-sm border-t border-border px-4 py-2 flex items-center justify-between gap-4 text-xs text-muted-foreground z-50">
+      <span>
+        We use cookies to improve your experience.{" "}
+        <a
+          href="#"
+          onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("open-modal", { detail: "privacy" })); }}
+          className="underline text-foreground hover:text-accent"
+        >
+          Privacy Policy
+        </a>
+      </span>
+      <div className="flex gap-2 shrink-0">
+        <button onClick={decline} className="text-muted-foreground hover:text-foreground transition-colors">Decline</button>
+        <button onClick={accept} className="font-medium text-foreground hover:text-accent transition-colors">Accept</button>
       </div>
     </div>
   );
