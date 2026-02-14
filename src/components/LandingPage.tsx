@@ -94,41 +94,54 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
 
       {/* Hero Section */}
       <section className="container mx-auto px-5 flex items-center justify-center min-h-[calc(100vh-88px)]">
-        <div className="flex flex-col items-center max-w-3xl mx-auto text-center">
-          {/* Headline */}
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 md:mb-4 leading-tight">
-            Paste Your List. Optimize Your Route. Finish Your Day Early.
-          </h1>
-          <p className="text-sm sm:text-base md:text-lg text-muted-foreground mb-6 max-w-xl mx-auto">
-            The AI-powered route planner that turns messy text into professional delivery routes. Break Google's 10-stop limit and optimize 50+ addresses in one click.
-          </p>
+        {/* Mobile: stacked / Desktop: side-by-side */}
+        <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-16 max-w-5xl mx-auto">
+          {/* Text side */}
+          <div className="flex flex-col items-center lg:items-start text-center lg:text-left flex-1">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold leading-tight mb-3 md:mb-4">
+              <span className="text-foreground">Paste Your List. </span>
+              <span className="text-accent">Optimize Your Route.</span>
+            </h1>
+            <p className="text-sm sm:text-base md:text-lg text-muted-foreground mb-6 max-w-xl">
+              The AI-powered route planner that turns messy text into professional delivery routes. Break Google's 10-stop limit and optimize 50+ addresses in one click.
+            </p>
 
-          {/* Phone Mockup - between copy and CTA */}
-          <div className="w-40 sm:w-48 md:w-56 mb-6">
+            {/* Phone Mockup - mobile only, between copy and CTA */}
+            <div className="w-40 sm:w-48 mb-6 lg:hidden">
+              <img 
+                src={heroPhoneMockup} 
+                alt="ZippyRouter app showing an optimized route with numbered map pins" 
+                className="w-full h-auto drop-shadow-2xl"
+              />
+            </div>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+              <Button 
+                onClick={onGetStarted}
+                size="lg" 
+                className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold w-full sm:w-auto"
+              >
+                Start Planning for Free
+              </Button>
+              <Button 
+                onClick={() => openModal('pricing')}
+                size="lg" 
+                variant="outline"
+                className="px-8 py-4 text-lg font-semibold w-full sm:w-auto"
+              >
+                See Pricing
+              </Button>
+            </div>
+          </div>
+
+          {/* Phone Mockup - desktop only, right side */}
+          <div className="hidden lg:block flex-shrink-0 w-56 xl:w-64">
             <img 
               src={heroPhoneMockup} 
               alt="ZippyRouter app showing an optimized route with numbered map pins" 
               className="w-full h-auto drop-shadow-2xl"
             />
-          </div>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button 
-              onClick={onGetStarted}
-              size="lg" 
-              className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold w-full sm:w-auto"
-            >
-              Start Planning for Free
-            </Button>
-            <Button 
-              onClick={() => openModal('pricing')}
-              size="lg" 
-              variant="outline"
-              className="px-8 py-4 text-lg font-semibold w-full sm:w-auto"
-            >
-              See Pricing
-            </Button>
           </div>
         </div>
       </section>

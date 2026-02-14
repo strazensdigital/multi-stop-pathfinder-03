@@ -967,35 +967,28 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
       <div className="pt-8" />
       
       {/* Page Headline */}
-      <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center mb-2">
+      <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center mb-6">
         Your Optimized Day Starts Here
       </h2>
-      <p className="text-sm text-muted-foreground text-center italic mb-6">
-        Type your stops, tap once, save 2 hours of driving.
-      </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-4">
 
-          {/* AI Paste Box - Pro only */}
+          {/* AI Paste Box - Pro only, with tooltip for non-pro */}
           {isPro ? (
             <AiPasteBox bookmarks={bookmarks} onAddressesExtracted={handleAiExtracted} />
           ) : (
-            <div className="relative">
+            <div className="relative group cursor-not-allowed">
               <div className="opacity-50 pointer-events-none">
                 <AiPasteBox bookmarks={bookmarks} onAddressesExtracted={handleAiExtracted} />
               </div>
               <span className="absolute top-1/2 right-3 -translate-y-1/2 text-[10px] font-bold bg-accent/20 text-accent px-1.5 py-0.5 rounded">PRO</span>
-            </div>
-          )}
-
-          {/* 10-Stop Badge */}
-          {!isPro && (
-            <div className="text-center">
-              <span className="inline-block text-xs font-semibold bg-accent/15 text-accent px-3 py-1 rounded-full">
-                🔥 Beat the 10-stop limit — upgrade to Pro
-              </span>
+              {/* Hover tooltip */}
+              <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex items-center px-3 py-1.5 rounded-md bg-foreground text-background text-xs font-medium whitespace-nowrap shadow-lg z-50">
+                {user ? "Upgrade to Pro to get AI credits" : "Log in to use AI text feature"}
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-foreground rotate-45" />
+              </div>
             </div>
           )}
 
