@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, Zap, Route, Upload, MousePointerClick, ExternalLink, X, Check } from "lucide-react";
-import roadLogo from "@/assets/road-logo.png";
+import zippyLogo from "@/assets/zippy-logo.png";
 import heroPhoneBg from "@/assets/hero-phone-bg.png";
 import GlobalModal from "@/components/modals/GlobalModal";
 import PricingModal from "@/components/modals/PricingModal";
@@ -308,7 +308,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex items-center gap-3">
               <img 
-                src={roadLogo} 
+                src={zippyLogo} 
                 alt="ZippyRouter logo" 
                 className="w-8 h-8 object-contain"
               />
