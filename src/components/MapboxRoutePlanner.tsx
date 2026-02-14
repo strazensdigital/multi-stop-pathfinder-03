@@ -323,27 +323,61 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     if (user) fetchRoutes();
   }, [user, fetchRoutes]);
 
-  // Zero-state sample route: auto-populate on first load if empty and auto-optimize
+  // Zero-state sample route: load cached result or auto-populate and optimize
+  const SAMPLE_CACHE_KEY = "zippyrouter_sample_cache";
   const sampleLoadedRef = useRef(false);
+  const [suppressToasts, setSuppressToasts] = useState(false);
+
   useEffect(() => {
     if (sampleLoadedRef.current) return;
     if (start.trim() || destinations.some(d => d.trim())) return;
     sampleLoadedRef.current = true;
+
+    // Try loading cached sample result
+    try {
+      const cached = localStorage.getItem(SAMPLE_CACHE_KEY);
+      if (cached) {
+        const data = JSON.parse(cached);
+        setStart(SAMPLE_STOPS[0]);
+        setDestinations(SAMPLE_STOPS.slice(1));
+        setIsSampleRoute(true);
+        setOrdered(data.ordered);
+        setArrow(data.arrow);
+        setTotalsLive(data.totalsLive);
+        setTotalsTypical(data.totalsTypical || null);
+        setRouteOptimized(true);
+        lastRouteGeojsonRef.current = data.geojson;
+        lastPaintRef.current = data.paint;
+        lastMarkerDataRef.current = data.markers;
+        // Render on map after it loads
+        const renderOnMap = () => {
+          if (mapRef.current && data.geojson) {
+            addOrUpdateRoute(data.geojson, data.paint);
+            updateMarkers(data.markers);
+            const coords = data.geojson.geometry?.coordinates;
+            if (coords?.length) fitToBounds(coords as LngLat[]);
+          }
+        };
+        setTimeout(renderOnMap, 500);
+        return;
+      }
+    } catch { /* ignore cache errors */ }
+
+    // No cache – populate and optimize (suppress toasts)
     setStart(SAMPLE_STOPS[0]);
     setDestinations(SAMPLE_STOPS.slice(1));
     setIsSampleRoute(true);
-    toast.info("Viewing sample 5-stop route. Clear to start your own.");
+    setSuppressToasts(true);
   }, []);
 
-  // Auto-trigger optimization once sample route is loaded
+  // Auto-trigger optimization once sample route is loaded (no cache)
   const sampleOptimizedRef = useRef(false);
   useEffect(() => {
-    if (!isSampleRoute || sampleOptimizedRef.current) return;
+    if (!isSampleRoute || sampleOptimizedRef.current || !suppressToasts) return;
     if (!start.trim() || destinations.filter(d => d.trim()).length < 2) return;
     sampleOptimizedRef.current = true;
-    // Small delay to let map initialize
-    setTimeout(() => optimizeRoute(), 800);
-  }, [isSampleRoute, start, destinations]);
+    setTimeout(() => optimizeRoute(true), 800);
+  }, [isSampleRoute, start, destinations, suppressToasts]);
 
   // Load route from saved routes
   useEffect(() => {
@@ -528,14 +562,15 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     else { map.once("load", ensureLayer); }
   }, [trafficOn, addOrUpdateRoute]);
 
-  const optimizeRoute = useCallback(async () => {
-    if (trafficOn === null) {
+  const optimizeRoute = useCallback(async (silentArg?: boolean | React.MouseEvent) => {
+    const silent = silentArg === true;
+    if (trafficOn === null && !silent) {
       setShowTrafficDialog(true);
       return;
     }
 
-    // Usage gate check
-    if (!isPro) {
+    // Usage gate check (skip for silent/sample)
+    if (!silent && !isPro) {
       const { allowed, showNudge } = checkUsage();
       if (!allowed) {
         toast.error("You've reached your daily limit of 5 free optimizations. Upgrade to Pro for unlimited access!");
@@ -659,10 +694,10 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
 
       fitToBounds(route.coordinates as LngLat[]);
       setRouteOptimized(true);
-      recordUsage();
+      if (!silent) recordUsage();
 
-      // Record usage event for logged-in users
-      if (user) {
+      // Record usage event for logged-in users (skip for sample)
+      if (!silent && user) {
         supabase.from("usage_events").insert({
           user_id: user.id,
           event_type: "optimize",
@@ -670,11 +705,36 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
         }).then(() => {});
       }
 
-      setTimeout(() => {
-        mapContainer.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+      if (!silent) {
+        setTimeout(() => {
+          mapContainer.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+        toast.success("Optimized route ready!");
+      }
 
-      toast.success("Optimized route ready!");
+      // Cache sample route result
+      if (silent) {
+        const geojson: Feature<LineString> = { type: "Feature", geometry: route, properties: {} };
+        const markerData = orderedStops.map((stop, i) => ({
+          coord: [stop.lng, stop.lat] as LngLat,
+          color: i === 0 ? "#7c3aed" : "#06b6d4",
+          label: stop.label,
+          role: stop.role,
+          index: stop.order,
+        }));
+        try {
+          localStorage.setItem(SAMPLE_CACHE_KEY, JSON.stringify({
+            ordered: orderedStops,
+            arrow: formatArrowString(orderedStops),
+            totalsLive: { distance_m: liveTotalDistanceM, duration_s: liveTotalDurationS },
+            totalsTypical: trafficOn ? { distance_m: liveTotalDistanceM, duration_s: typicalTotalDurationS } : null,
+            geojson,
+            paint: lastPaintRef.current,
+            markers: markerData,
+          }));
+        } catch { /* localStorage full, ignore */ }
+        setSuppressToasts(false);
+      }
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || "Failed to compute route");
