@@ -42,7 +42,7 @@ export function useUsageGate() {
   const isPro = profile?.plan === "pro";
 
   // Max stops: 9 for free, unlimited for pro
-  const maxStops = isPro ? 999 : 9;
+  const maxStops = isPro ? 25 : 9;
 
   // Check if user should see nudge (uses 3-4) or be locked (5+)
   const checkUsage = useCallback((): { allowed: boolean; showNudge: boolean } => {

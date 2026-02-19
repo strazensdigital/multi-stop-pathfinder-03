@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import mapboxgl from "mapbox-gl";
 import type { Feature, LineString } from "geojson";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRoutes } from "@/hooks/useRoutes";
 import { useUsageGate } from "@/hooks/useUsageGate";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { Save, Loader2, Lock, Star, GripVertical } from "lucide-react";
+import { Save, Loader2, Lock, Star, GripVertical, Download, Info } from "lucide-react";
 import { AiPasteBox } from "@/components/AiPasteBox";
 
 // 5-stop sample route across Toronto
@@ -290,6 +291,8 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
   });
   const [showTrafficDialog, setShowTrafficDialog] = useState(false);
   const [showNewRouteDialog, setShowNewRouteDialog] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportLegs, setExportLegs] = useState<string[]>([]);
   const [routeOptimized, setRouteOptimized] = useState(false);
   const [isSampleRoute, setIsSampleRoute] = useState(false);
   
@@ -973,7 +976,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left Column */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-4 lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto lg:pr-1">
 
           {/* AI Paste Box - Pro only, with tooltip for non-pro */}
           {isPro ? (
@@ -1021,11 +1024,26 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
           <Card className="shadow-[var(--shadow-elegant)] border border-border/60">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Stops {isPro ? '' : '(2–9)'}</CardTitle>
-                <span className="text-sm text-muted-foreground">{filledStops}{isPro ? '' : '/9'}</span>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-base">Stops {isPro ? `(2–25)` : '(2–9)'}</CardTitle>
+                  {isPro && filledStops >= 20 && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-accent cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[260px]">
+                          <p className="text-xs">Large routes are automatically split into optimized 9-stop legs for 100% compatibility with mobile navigation apps.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+                <span className="text-sm text-muted-foreground">{filledStops}{isPro ? '/25' : '/9'}</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground -mt-1">Current capacity: 25 stops per route</p>
               <div className="space-y-2">
                 {destinations.map((destination, i) => (
                   <div key={i} className="flex gap-2">
@@ -1108,7 +1126,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
           </Card>
 
           {/* Desktop Optimize Button */}
-          <div className="hidden lg:block space-y-2">
+          <div className="hidden lg:block space-y-2 sticky bottom-0 z-10 bg-background pt-2 pb-1">
             <Button 
               onClick={stickyBtn.action} 
               disabled={stickyBtn.disabled} 
@@ -1140,7 +1158,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
 
         {/* Map Section */}
         <div className="lg:col-span-3 space-y-3">
-          <div ref={mapContainer} className="w-full h-[420px] lg:h-[620px] rounded-lg shadow-[var(--shadow-elegant)]" />
+          <div ref={mapContainer} className="w-full h-[420px] lg:h-[620px] min-h-[300px] rounded-lg shadow-[var(--shadow-elegant)]" />
           
           {/* Traffic Legend */}
           {trafficOn && (
@@ -1218,11 +1236,11 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
                     className="w-full min-h-[48px] text-base font-medium"
                     style={{ background: 'linear-gradient(135deg, hsl(348, 83%, 47%), hsl(348, 83%, 40%))' }}
                     onClick={() => {
-                      urls.forEach((url, i) => {
-                        setTimeout(() => window.open(url, '_blank'), i * 300);
-                      });
                       if (isMultiLeg) {
-                        toast.info(`Route split into ${urls.length} legs (Google Maps limits waypoints to 9). Check your browser tabs!`);
+                        setExportLegs(urls);
+                        setShowExportModal(true);
+                      } else {
+                        window.open(urls[0], '_blank');
                       }
                     }}
                   >
@@ -1230,6 +1248,28 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
                   </Button>
                 );
               })()}
+              {user && (
+                <Button
+                  variant="outline"
+                  className="w-full min-h-[44px] border-border/40"
+                  onClick={() => {
+                    if (!ordered) return;
+                    const header = 'Order,Address,Latitude,Longitude\n';
+                    const rows = ordered.map((s) => `${s.order},"${s.label.replace(/"/g, '""')}",${s.lat},${s.lng}`).join('\n');
+                    const blob = new Blob([header + rows], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `zippyrouter-route-${new Date().toISOString().slice(0, 10)}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success('Route exported as CSV');
+                  }}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Export CSV
+                </Button>
+              )}
               {user && (() => {
                 const canSave = isPro || savedRoutes.length < 1;
                 return (
@@ -1337,6 +1377,44 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
             >
               Upgrade to Pro
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Export Legs Modal */}
+      <AlertDialog open={showExportModal} onOpenChange={setShowExportModal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Route split into {exportLegs.length} legs</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your route has been split into {exportLegs.length} legs for mobile compatibility. Each leg ends where the next begins, so you'll never miss a beat.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            {exportLegs.map((url, i) => (
+              <Button
+                key={i}
+                variant="outline"
+                className="w-full"
+                onClick={() => window.open(url, '_blank')}
+              >
+                Open Leg {i + 1}
+              </Button>
+            ))}
+            <Button
+              className="w-full btn-hero"
+              onClick={() => {
+                exportLegs.forEach((url, i) => {
+                  setTimeout(() => window.open(url, '_blank'), i * 300);
+                });
+                setShowExportModal(false);
+              }}
+            >
+              Open All Legs
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
