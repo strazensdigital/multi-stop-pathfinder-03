@@ -1,44 +1,91 @@
+## Comprehensive UI, Copy, Export Logic, and Layout Update
 
+This plan covers four major areas: copy/branding updates, a new competitor comparison table, an export-to-legs modal, and sidebar/map layout fixes.
 
-## Plan: Mobile UI Refinement, Bookmark Autocomplete, and Branding Cleanup
+---
 
-### 1. Mobile Hero Button Spacing and Padding
+### 1. Global Copy and Branding Updates
 
-**File:** `src/components/LandingPage.tsx`
+**File: `src/components/LandingPage.tsx**`
 
-- Add `gap-4` (16px) between the two CTA buttons on mobile by wrapping them in a flex container with `flex-col sm:flex-row` and `gap-4`
-- Currently the buttons use `mr-4` inline -- replace with a proper flex gap layout
-- Add `px-5` (20px) horizontal padding to the hero section on mobile (currently `px-4`)
+- Hero subtitle: Change "optimize 50+ addresses" to "optimize 25 addresses"
+- Comparison table header: "Google Maps" becomes "Standard Map Apps"
+- Section title: "Why Pros Switch from Google Maps" becomes "Why Pros Switch from Standard Map Apps"
+- Subtitle copy: Remove specific "Google Maps" reference, use generic phrasing
+- Comparison table row "Max stops": "50+" becomes "25"
+- Feature card: "50+ Stops" becomes "25 Stops", update description text
+- Stats section: "50+" becomes "25"
 
-### 2. Bookmark Address Autocomplete
+**File: `src/hooks/useUsageGate.tsx**`
 
-**File:** `src/components/HamburgerMenu.tsx`
+- Change pro `maxStops` from `999` to `25`
 
-- Replace the plain `<Input>` for "Full address" with a controlled input that calls the same Mapbox geocoding/suggestions API used in `MapboxRoutePlanner.tsx`
-- Add local state for suggestions list and show a dropdown below the address input
-- On selecting a suggestion, populate the address field (and optionally store lat/lng for the bookmark)
-- Reuse the same `fetchSuggestions` logic (extract it or call inline with the same Mapbox geocoding endpoint + IP geo params)
+**File: `src/components/MapboxRoutePlanner.tsx**`
 
-Since `fetchSuggestions` is currently a module-level function in `MapboxRoutePlanner.tsx`, the cleanest approach is to extract it (along with `getGeoParams`) into a shared utility or just duplicate the small fetch inline in the HamburgerMenu component to keep changes minimal.
+- Add "Fair Use" disclaimer text below the Stops card header: "Current capacity: 25 stops per route"
+- Add a "Pro Tip" tooltip that appears when stop count reaches 20+: "Large routes are automatically split into optimized 9-stop legs for 100% compatibility with mobile navigation apps."
+- Update Stops card header range display from `(2-9)` to `(2-9)` for free / remove cap display for pro since it's now 25
 
-### 3. Remove Lovable Branding from index.html
+---
 
-**File:** `index.html`
+### 2. New Competitor Comparison Table
 
-- Change `<meta name="author" content="Lovable">` to `content="ZipRoute"`
-- Update `og:image` and `twitter:image` to remove Lovable OG images (set to empty or a custom ZipRoute image if available)
-- Remove `twitter:site` referencing `@lovable_dev`
-- Update canonical URL if needed
+**File: `src/components/LandingPage.tsx**`
 
-### Technical Details
+Insert a new section after the existing "Why Pros Switch" comparison table:
 
-**Files modified:**
-1. `src/components/LandingPage.tsx` -- button layout + padding
-2. `src/components/HamburgerMenu.tsx` -- add Mapbox geocoding autocomplete to bookmark address input
-3. `index.html` -- remove Lovable branding metadata
+- Title: "How ZippyRouter Compares"
+- 4-column responsive table: Feature | ZippyRouter | Competitor R | Competitor C
+- Rows:
+  - Max Stops: 25 (checkmark) | 20 | 10
+  - Address Input: AI Smart-Paste (checkmark) | Upload/Manual | Manual/Camera
+  - Optimization: One-Click AI (checkmark) | Basic | Advanced
+  - Setup Time: Instant (checkmark) | Moderate | Slow
+- ZippyRouter column gets a subtle brand-color left border and light accent background
+- On mobile, the table scrolls horizontally with a hint indicator
+- Uses existing `Check` icon from lucide-react for checkmarks
 
-**Bookmark autocomplete approach:**
-- Add state: `addressSuggestions`, `showAddressSuggestions`
-- On address input change, debounce-fetch from Mapbox geocoding API (same endpoint/params as route planner)
-- Render a dropdown list below the input; on click, set `newAddress` to the selected place name
-- Uses the same IP-based geo params already cached in the app
+---
+
+### 3. Export to Legs Modal
+
+**File: `src/components/MapboxRoutePlanner.tsx**`
+
+Replace the current inline tab-opening behavior with a proper modal:
+
+- Add new state: `showExportModal` (boolean) and `exportLegs` (array of URL strings)
+- When user clicks the Google Maps export button:
+  - If stops fit in one leg (11 or fewer), open directly as before
+  - If stops require multiple legs, set `showExportModal = true` and populate `exportLegs`
+- Modal content (using existing `AlertDialog`):
+  - Title: "Your route has been split into X legs for mobile compatibility"
+  - Description explaining the continuity logic (last stop of Leg N = first stop of Leg N+1)
+  - Individual "Open Leg X" buttons for each leg
+  - "Open All Legs" button that opens all tabs
+  - Close/Cancel button
+- The existing `buildGoogleMapsUrls` function already handles the splitting logic correctly with overlap
+
+---
+
+### 4. Sidebar and Map Layout Fixes
+
+**File: `src/components/MapboxRoutePlanner.tsx**`
+
+- Wrap the left column (`lg:col-span-2`) content in a scrollable container: `max-h-[calc(100vh-140px)] overflow-y-auto` on desktop
+- Make the "Find My Fastest Route" / "Recalculate" button sticky at the bottom of the left column using `sticky bottom-0 z-10 bg-background pt-2 pb-1` styling
+- Add `min-h-[300px]` to the Mapbox map container for safety on small viewports
+- These are CSS-only changes, no structural rework needed
+
+---
+
+### Technical Summary
+
+**Files to modify (3 total):**
+
+1. `src/components/LandingPage.tsx` -- all landing page copy changes + new comparison table section
+2. `src/hooks/useUsageGate.tsx` -- change `maxStops` from `999` to `25`
+3. `src/components/MapboxRoutePlanner.tsx` -- fair use disclaimer, pro tip tooltip, export modal, sidebar scroll + sticky button
+
+**No new dependencies required.** All UI components (AlertDialog, Check icon, tooltips) are already available in the project.  
+  
+Also, add export route as csv/text button for logged in users near google maps button.
