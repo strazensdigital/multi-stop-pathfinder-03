@@ -132,7 +132,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 <span className="text-accent">Optimize Your Route.</span>
               </h1>
               <p className="text-sm sm:text-base md:text-lg text-white/70 mb-8 max-w-xl leading-relaxed">
-                The AI-powered route planner that turns messy text into professional delivery routes. Break Google's 10-stop limit and optimize 50+ addresses in one click.
+                The AI-powered route planner that turns messy text into professional delivery routes. Break the 10-stop limit and optimize 25 addresses in one click.
               </p>
 
               {/* CTA Buttons */}
@@ -188,16 +188,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
 
       {/* Why Pros Switch — Comparison Table */}
       <section className="container mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold text-center text-foreground mb-3">Why Pros Switch from Google Maps</h2>
+        <h2 className="text-3xl font-bold text-center text-foreground mb-3">Why Pros Switch from Standard Map Apps</h2>
         <p className="text-center text-muted-foreground mb-10 max-w-2xl mx-auto">
-          Google Maps is great for getting from A to B. But when you have 30 stops and a deadline, you need a tool built for the job.
+          Standard map apps are great for getting from A to B. But when you have 30 stops and a deadline, you need a tool built for the job.
         </p>
         <div className="max-w-3xl mx-auto overflow-hidden rounded-lg border border-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50">
                 <th className="text-left px-6 py-4 font-semibold text-foreground">Feature</th>
-                <th className="text-center px-6 py-4 font-semibold text-muted-foreground">Google Maps</th>
+                <th className="text-center px-6 py-4 font-semibold text-muted-foreground">Standard Map Apps</th>
                 <th className="text-center px-6 py-4 font-semibold text-accent">ZippyRouter</th>
               </tr>
             </thead>
@@ -205,7 +205,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <tr>
                 <td className="px-6 py-4 text-foreground">Max stops</td>
                 <td className="px-6 py-4 text-center text-muted-foreground">10</td>
-                <td className="px-6 py-4 text-center font-semibold text-accent">50+</td>
+                <td className="px-6 py-4 text-center font-semibold text-accent">25</td>
               </tr>
               <tr>
                 <td className="px-6 py-4 text-foreground">Route optimization</td>
@@ -232,11 +232,57 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         </div>
       </section>
 
+      {/* How ZippyRouter Compares — Competitor Table */}
+      <section className="container mx-auto px-4 py-16">
+        <h2 className="text-3xl font-bold text-center text-foreground mb-3">How ZippyRouter Compares</h2>
+        <p className="text-center text-muted-foreground mb-10 max-w-2xl mx-auto">
+          See how we stack up against the competition.
+        </p>
+        <div className="max-w-4xl mx-auto overflow-x-auto">
+          <table className="w-full text-sm min-w-[500px]">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="text-left px-6 py-4 font-semibold text-foreground">Feature</th>
+                <th className="text-center px-6 py-4 font-semibold text-accent border-l-2 border-accent/30 bg-accent/5">ZippyRouter</th>
+                <th className="text-center px-6 py-4 font-semibold text-muted-foreground">Competitor R</th>
+                <th className="text-center px-6 py-4 font-semibold text-muted-foreground">Competitor C</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <tr>
+                <td className="px-6 py-4 text-foreground">Max Stops</td>
+                <td className="px-6 py-4 text-center border-l-2 border-accent/30 bg-accent/5 font-semibold text-accent"><Check className="w-4 h-4 text-accent inline mr-1" />25 Stops</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">20 Stops</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">10 Stops</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Address Input</td>
+                <td className="px-6 py-4 text-center border-l-2 border-accent/30 bg-accent/5 font-semibold text-accent"><Check className="w-4 h-4 text-accent inline mr-1" />AI Smart-Paste</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">Upload/Manual</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">Manual/Camera</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Optimization</td>
+                <td className="px-6 py-4 text-center border-l-2 border-accent/30 bg-accent/5 font-semibold text-accent"><Check className="w-4 h-4 text-accent inline mr-1" />One-Click AI</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">Basic</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">Advanced</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Setup Time</td>
+                <td className="px-6 py-4 text-center border-l-2 border-accent/30 bg-accent/5 font-semibold text-accent"><Check className="w-4 h-4 text-accent inline mr-1" />Instant</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">Moderate</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">Slow</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       {/* PAS Narrative */}
       <section className="bg-muted/30 py-16">
         <div className="container mx-auto px-4 max-w-3xl text-center">
           <p className="text-base sm:text-lg text-foreground leading-relaxed">
-            Still manually typing every stop into Google Maps? One typo sends you 20 minutes across town. Wasted gas, late deliveries, and the stress of managing 30 stops in an app built for 10. <span className="font-semibold text-accent">ZippyRouter turns your messy text into a professional route in one click.</span>
+            Still manually typing every stop into your map app? One typo sends you 20 minutes across town. Wasted gas, late deliveries, and the stress of managing 30 stops in an app built for 10. <span className="font-semibold text-accent">ZippyRouter turns your messy text into a professional route in one click.</span>
           </p>
         </div>
       </section>
@@ -273,9 +319,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Route className="w-8 h-8 text-accent" />
               </div>
-              <h3 className="text-xl font-bold mb-3">50+ Stops</h3>
+              <h3 className="text-xl font-bold mb-3">25 Stops</h3>
               <p className="text-muted-foreground">
-                Pro users can optimize routes with 50+ stops in seconds. Perfect for delivery fleets and field teams.
+                Pro users can optimize routes with up to 25 stops in seconds. Perfect for delivery fleets and field teams.
               </p>
             </CardContent>
           </Card>
@@ -295,7 +341,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <p className="text-muted-foreground">Fuel Cost Reduction</p>
             </div>
             <div>
-              <div className="text-3xl font-bold text-accent mb-2">50+</div>
+              <div className="text-3xl font-bold text-accent mb-2">25</div>
               <p className="text-muted-foreground">Stops (Pro)</p>
             </div>
           </div>
