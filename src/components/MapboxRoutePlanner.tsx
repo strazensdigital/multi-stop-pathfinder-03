@@ -23,7 +23,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRoutes } from "@/hooks/useRoutes";
 import { useUsageGate } from "@/hooks/useUsageGate";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { Save, Loader2, Lock, Star, GripVertical, Download, Info } from "lucide-react";
+import { Save, Loader2, Lock, Unlock, Star, GripVertical, Download, Info, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { AiPasteBox } from "@/components/AiPasteBox";
 
 // 5-stop sample route across Toronto
@@ -184,8 +185,14 @@ const SortableStopItem: React.FC<{
   units: 'metric' | 'imperial';
   shortLabel: (s: string) => string;
   onRowClick: (stop: OrderedStop) => void;
-}> = ({ id, stop, units, shortLabel, onRowClick }) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  isLocked: boolean;
+  serviceMins: number;
+  isPro: boolean;
+  onToggleLock: (index: number) => void;
+  onServiceChange: (index: number, mins: number) => void;
+  onProFeatureClick: () => void;
+}> = ({ id, stop, units, shortLabel, onRowClick, isLocked, serviceMins, isPro, onToggleLock, onServiceChange, onProFeatureClick }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled: isLocked });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -196,19 +203,23 @@ const SortableStopItem: React.FC<{
     <li
       ref={setNodeRef}
       style={style}
-      className="py-4 cursor-pointer hover:bg-muted/50 rounded-md px-2 transition-colors"
+      className={`py-4 cursor-pointer hover:bg-muted/50 rounded-md px-2 transition-colors ${isLocked ? 'bg-accent/5 border-l-2 border-accent/40' : ''}`}
       onClick={() => onRowClick(stop)}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0 overflow-hidden">
-          <button
-            className="mt-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground shrink-0"
-            {...attributes}
-            {...listeners}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
+          {isLocked ? (
+            <span className="mt-1 text-accent shrink-0"><Lock className="h-4 w-4" /></span>
+          ) : (
+            <button
+              className="mt-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground shrink-0"
+              {...attributes}
+              {...listeners}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+          )}
           <span
             className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-medium mt-0.5 ${
               stop.order === 0 ? 'bg-[#7c3aed] text-white' : 'bg-[#06b6d4] text-white'
@@ -229,6 +240,46 @@ const SortableStopItem: React.FC<{
             } • {toMinutes(stop.toNext.duration_s).toFixed(0)} min
           </span>
         )}
+      </div>
+      {/* Pro Feature Container */}
+      <div className="flex items-center gap-3 mt-2 ml-10" onClick={(e) => e.stopPropagation()}>
+        {/* Lock Toggle */}
+        <button
+          className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors ${
+            isPro
+              ? isLocked
+                ? 'bg-accent/15 text-accent'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
+              : 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed'
+          }`}
+          onClick={() => isPro ? onToggleLock(stop.order) : onProFeatureClick()}
+        >
+          {isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+          {isLocked ? 'Locked' : 'Lock'}
+          {!isPro && <span className="text-[9px] font-bold bg-accent/20 text-accent px-1 py-0.5 rounded ml-1">PRO</span>}
+        </button>
+        {/* Service Duration */}
+        <div className={`flex items-center gap-1 ${!isPro ? 'opacity-50 cursor-not-allowed' : ''}`}>
+          <Clock className="h-3 w-3 text-muted-foreground" />
+          <input
+            type="number"
+            min={0}
+            max={480}
+            value={serviceMins || ''}
+            placeholder="0"
+            disabled={!isPro}
+            className={`w-12 h-6 text-xs text-center border rounded-md bg-background ${
+              isPro ? 'border-border' : 'border-border/30 cursor-not-allowed'
+            }`}
+            onClick={(e) => { if (!isPro) { e.preventDefault(); onProFeatureClick(); } }}
+            onChange={(e) => {
+              const val = parseInt(e.target.value) || 0;
+              onServiceChange(stop.order, Math.min(480, Math.max(0, val)));
+            }}
+          />
+          <span className="text-xs text-muted-foreground">min</span>
+          {!isPro && <span className="text-[9px] font-bold bg-accent/20 text-accent px-1 py-0.5 rounded">PRO</span>}
+        </div>
       </div>
     </li>
   );
@@ -262,6 +313,9 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
   const { locked, isPro, maxStops, checkUsage, recordUsage, remainingUses, MAX_FREE_USES } = useUsageGate();
   const { bookmarks, matchBookmarks, addBookmark } = useBookmarks();
   const [showUpgradeNudge, setShowUpgradeNudge] = useState(false);
+  const [showProFeatureNudge, setShowProFeatureNudge] = useState(false);
+  const [lockedStops, setLockedStops] = useState<Set<number>>(new Set());
+  const [serviceTimes, setServiceTimes] = useState<Record<number, number>>({});
   const [savingRoute, setSavingRoute] = useState(false);
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -611,80 +665,174 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
       }
 
       const rawInputLabels = [start, ...filtered];
-      let coords: LngLat[];
-      let labelsByStableIndex: string[];
+      const allCoords: LngLat[] = [startRes.center, ...destResults.map(r => r.center)];
+      const allLabels = rawInputLabels;
 
-      coords = [startRes.center, ...destResults.map(r => r.center)];
-      labelsByStableIndex = rawInputLabels;
+      // Check if Pro user has locked stops that apply to current route
+      const hasLockedStops = isPro && lockedStops.size > 0;
 
-      const coordsStr = coords.map((c) => `${c[0]},${c[1]}`).join(";");
-      const baseParams = `source=first&destination=last&roundtrip=false&geometries=geojson&overview=full&access_token=${getToken()}`;
-      
-      let liveUrl: string;
-      let typicalUrl: string;
+      let orderedStops: OrderedStop[];
 
-      if (trafficOn) {
-        liveUrl = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving-traffic/${coordsStr}?${baseParams}&annotations=congestion,distance,duration&steps=true`;
-        typicalUrl = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordsStr}?${baseParams}&steps=true`;
+      if (hasLockedStops && allCoords.length > 2) {
+        // Pro path: optimize only unlocked stops, keep locked in place
+        // lockedStops stores order indices from previous optimization
+        // Map them to current input indices (locked indices that are in range)
+        const lockedIndices = new Set<number>();
+        lockedStops.forEach(idx => { if (idx < allCoords.length) lockedIndices.add(idx); });
+
+        // If all stops are locked or only 1 unlocked, just use directions API
+        const unlockedIndices = Array.from({ length: allCoords.length }, (_, i) => i).filter(i => !lockedIndices.has(i));
+
+        if (unlockedIndices.length <= 2) {
+          // Not enough unlocked stops to optimize, just get directions in current order
+          const coordsStr = allCoords.map(c => `${c[0]},${c[1]}`).join(';');
+          const dirUrl = `https://api.mapbox.com/directions/v5/mapbox/${trafficOn ? 'driving-traffic' : 'driving'}/${coordsStr}?geometries=geojson&overview=full&annotations=distance,duration&access_token=${getToken()}`;
+          const dirRes = await fetch(dirUrl);
+          if (!dirRes.ok) throw new Error("Directions request failed");
+          const dirData = await dirRes.json();
+          const route = dirData?.routes?.[0];
+          if (!route) throw new Error("No route found.");
+
+          drawRoute({ type: "Feature", geometry: route.geometry, properties: {} });
+          const legs = route.legs || [];
+          orderedStops = allCoords.map((coord, i) => {
+            let label = (allLabels[i] ?? '').trim();
+            const stop: OrderedStop = { order: i, role: i === 0 ? 'Start' : 'Stop', label, lat: coord[1], lng: coord[0] };
+            if (i < legs.length) stop.toNext = { distance_m: legs[i].distance || 0, duration_s: legs[i].duration || 0 };
+            return stop;
+          });
+
+          setTotalsLive({ distance_m: route.distance, duration_s: route.duration });
+          setTotalsTypical(null);
+        } else {
+          // Optimize only unlocked stops
+          const unlockedCoords = unlockedIndices.map(i => allCoords[i]);
+          const unlockedCoordsStr = unlockedCoords.map(c => `${c[0]},${c[1]}`).join(';');
+          const baseParams = `source=first&destination=last&roundtrip=false&geometries=geojson&overview=full&access_token=${getToken()}`;
+          const optUrl = `https://api.mapbox.com/optimized-trips/v1/mapbox/${trafficOn ? 'driving-traffic' : 'driving'}/${unlockedCoordsStr}?${baseParams}`;
+          const optRes = await fetch(optUrl);
+          if (!optRes.ok) throw new Error("Optimization request failed");
+          const optData = await optRes.json();
+          const optTrip = optData?.trips?.[0];
+          if (!optTrip) throw new Error("No route found.");
+
+          // Get optimized order of unlocked stops
+          const optWaypoints = (optData?.waypoints || []).slice().sort((a: any, b: any) => a.waypoint_index - b.waypoint_index);
+          const optimizedUnlockedIndices = optWaypoints.map((wp: any) => unlockedIndices[wp.waypoint_index !== undefined ? (optData.waypoints as any[]).indexOf(wp) : 0]);
+          // Actually sort by waypoint_index
+          const rawWps = optData?.waypoints || [];
+          const sortedWps = rawWps.map((wp: any, idx: number) => ({ ...wp, origUnlockedIdx: idx })).sort((a: any, b: any) => a.waypoint_index - b.waypoint_index);
+          
+          // Merge: locked stops at their indices, unlocked in optimized order
+          const mergedOrder: number[] = [];
+          let unlockedPtr = 0;
+          for (let i = 0; i < allCoords.length; i++) {
+            if (lockedIndices.has(i)) {
+              mergedOrder.push(i);
+            } else {
+              const origIdx = unlockedIndices[sortedWps[unlockedPtr]?.origUnlockedIdx ?? unlockedPtr];
+              mergedOrder.push(origIdx);
+              unlockedPtr++;
+            }
+          }
+
+          // Get directions for the merged sequence
+          const mergedCoords = mergedOrder.map(i => allCoords[i]);
+          const mergedCoordsStr = mergedCoords.map(c => `${c[0]},${c[1]}`).join(';');
+          const dirUrl = `https://api.mapbox.com/directions/v5/mapbox/${trafficOn ? 'driving-traffic' : 'driving'}/${mergedCoordsStr}?geometries=geojson&overview=full&annotations=distance,duration&access_token=${getToken()}`;
+          const dirRes = await fetch(dirUrl);
+          if (!dirRes.ok) throw new Error("Directions request failed");
+          const dirData = await dirRes.json();
+          const route = dirData?.routes?.[0];
+          if (!route) throw new Error("No route found.");
+
+          drawRoute({ type: "Feature", geometry: route.geometry, properties: {} });
+          const legs = route.legs || [];
+          orderedStops = mergedOrder.map((origIdx, i) => {
+            let label = (allLabels[origIdx] ?? '').trim();
+            const coord = allCoords[origIdx];
+            const stop: OrderedStop = { order: i, role: i === 0 ? 'Start' : 'Stop', label, lat: coord[1], lng: coord[0] };
+            if (i < legs.length) stop.toNext = { distance_m: legs[i].distance || 0, duration_s: legs[i].duration || 0 };
+            return stop;
+          });
+
+          setTotalsLive({ distance_m: route.distance, duration_s: route.duration });
+          setTotalsTypical(null);
+        }
       } else {
-        liveUrl = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordsStr}?${baseParams}`;
-        typicalUrl = liveUrl;
-      }
+        // Standard path (free users or no locked stops)
+        const coordsStr = allCoords.map((c) => `${c[0]},${c[1]}`).join(";");
+        const baseParams = `source=first&destination=last&roundtrip=false&geometries=geojson&overview=full&access_token=${getToken()}`;
+        
+        let liveUrl: string;
+        let typicalUrl: string;
 
-      const liveRes = await fetch(liveUrl);
-      if (!liveRes.ok) throw new Error("Optimization request failed");
-      const liveData = await liveRes.json();
-      const liveTrip = liveData?.trips?.[0];
-      if (!liveTrip) throw new Error("No route found. Try different locations.");
-
-      let typicalTrip = liveTrip;
-      if (trafficOn && typicalUrl !== liveUrl) {
-        const typicalRes = await fetch(typicalUrl);
-        if (typicalRes.ok) {
-          const typicalData = await typicalRes.json();
-          typicalTrip = typicalData?.trips?.[0] || liveTrip;
+        if (trafficOn) {
+          liveUrl = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving-traffic/${coordsStr}?${baseParams}&annotations=congestion,distance,duration&steps=true`;
+          typicalUrl = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordsStr}?${baseParams}&steps=true`;
+        } else {
+          liveUrl = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordsStr}?${baseParams}`;
+          typicalUrl = liveUrl;
         }
-      }
 
-      const route = liveTrip.geometry as LineString;
-      drawRoute({ type: "Feature", geometry: route, properties: {} }, liveTrip, typicalTrip);
+        const liveRes = await fetch(liveUrl);
+        if (!liveRes.ok) throw new Error("Optimization request failed");
+        const liveData = await liveRes.json();
+        const liveTrip = liveData?.trips?.[0];
+        if (!liveTrip) throw new Error("No route found. Try different locations.");
 
-      const rawWaypoints = (liveData?.waypoints || []).map((wp: any, idx: number) => ({...wp, origIndex: idx}));
-      const orderedWaypoints = rawWaypoints.slice().sort((a, b) => a.waypoint_index - b.waypoint_index);
-      const legs = liveTrip.legs || [];
-
-      const orderedStops: OrderedStop[] = [];
-      for (let i = 0; i < orderedWaypoints.length; i++) {
-        const wp = orderedWaypoints[i];
-        const [lng, lat] = wp.location;
-        const orig = orderedWaypoints[i].origIndex;
-        let label = (labelsByStableIndex[orig] ?? '').trim();
-        if (!label || isCoordInput(label)) {
-          const rev = await reverseGeocode(lat, lng, getToken());
-          label = rev || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        let typicalTrip = liveTrip;
+        if (trafficOn && typicalUrl !== liveUrl) {
+          const typicalRes = await fetch(typicalUrl);
+          if (typicalRes.ok) {
+            const typicalData = await typicalRes.json();
+            typicalTrip = typicalData?.trips?.[0] || liveTrip;
+          }
         }
-        const stop: OrderedStop = { order: i, role: i === 0 ? 'Start' : 'Stop', label, lat, lng };
-        if (i < legs.length) {
-          stop.toNext = { distance_m: legs[i].distance || 0, duration_s: legs[i].duration || 0 };
+
+        const route = liveTrip.geometry as LineString;
+        drawRoute({ type: "Feature", geometry: route, properties: {} }, liveTrip, typicalTrip);
+
+        const rawWaypoints = (liveData?.waypoints || []).map((wp: any, idx: number) => ({...wp, origIndex: idx}));
+        const orderedWaypoints = rawWaypoints.slice().sort((a: any, b: any) => a.waypoint_index - b.waypoint_index);
+        const legs = liveTrip.legs || [];
+
+        orderedStops = [];
+        for (let i = 0; i < orderedWaypoints.length; i++) {
+          const wp = orderedWaypoints[i];
+          const [lng, lat] = wp.location;
+          const orig = orderedWaypoints[i].origIndex;
+          let label = (allLabels[orig] ?? '').trim();
+          if (!label || isCoordInput(label)) {
+            const rev = await reverseGeocode(lat, lng, getToken());
+            label = rev || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+          }
+          const stop: OrderedStop = { order: i, role: i === 0 ? 'Start' : 'Stop', label, lat, lng };
+          if (i < legs.length) {
+            stop.toNext = { distance_m: legs[i].distance || 0, duration_s: legs[i].duration || 0 };
+          }
+          orderedStops.push(stop);
         }
-        orderedStops.push(stop);
+
+        const liveTotalDistanceM = typeof liveTrip.distance === "number"
+          ? liveTrip.distance : legs.reduce((s: number, l: any) => s + (l.distance || 0), 0);
+        const liveTotalDurationS = typeof liveTrip.duration === "number"
+          ? liveTrip.duration : legs.reduce((s: number, l: any) => s + (l.duration || 0), 0);
+        const typicalTotalDurationS = trafficOn && typicalTrip !== liveTrip
+          ? (typeof typicalTrip.duration === "number" ? typicalTrip.duration
+            : (typicalTrip.legs || []).reduce((s: number, l: any) => s + (l.duration || 0), 0))
+          : liveTotalDurationS;
+
+        setTotalsLive({ distance_m: liveTotalDistanceM, duration_s: liveTotalDurationS });
+        if (trafficOn) { setTotalsTypical({ distance_m: liveTotalDistanceM, duration_s: typicalTotalDurationS }); }
+        else { setTotalsTypical(null); }
       }
 
       setOrdered(orderedStops);
       setArrow(formatArrowString(orderedStops));
-
-      const liveTotalDistanceM = typeof liveTrip.distance === "number"
-        ? liveTrip.distance : legs.reduce((s: number, l: any) => s + (l.distance || 0), 0);
-      const liveTotalDurationS = typeof liveTrip.duration === "number"
-        ? liveTrip.duration : legs.reduce((s: number, l: any) => s + (l.duration || 0), 0);
-      const typicalTotalDurationS = trafficOn && typicalTrip !== liveTrip
-        ? (typeof typicalTrip.duration === "number" ? typicalTrip.duration
-          : (typicalTrip.legs || []).reduce((s: number, l: any) => s + (l.duration || 0), 0))
-        : liveTotalDurationS;
-
-      setTotalsLive({ distance_m: liveTotalDistanceM, duration_s: liveTotalDurationS });
-      if (trafficOn) { setTotalsTypical({ distance_m: liveTotalDistanceM, duration_s: typicalTotalDurationS }); }
-      else { setTotalsTypical(null); }
+      // Reset locked stops mapping for new order
+      setLockedStops(new Set());
+      setServiceTimes({});
 
       updateMarkers(orderedStops.map((stop, i) => ({
         coord: [stop.lng, stop.lat] as LngLat,
@@ -694,7 +842,9 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
         index: stop.order,
       })));
 
-      fitToBounds(route.coordinates as LngLat[]);
+      // Fit map to route
+      const allRouteCoords = orderedStops.map(s => [s.lng, s.lat] as LngLat);
+      fitToBounds(allRouteCoords);
       setRouteOptimized(true);
       if (!silent) recordUsage();
 
@@ -715,8 +865,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
       }
 
       // Cache sample route result
-      if (silent) {
-        const geojson: Feature<LineString> = { type: "Feature", geometry: route, properties: {} };
+      if (silent && lastRouteGeojsonRef.current) {
         const markerData = orderedStops.map((stop, i) => ({
           coord: [stop.lng, stop.lat] as LngLat,
           color: i === 0 ? "#7c3aed" : "#06b6d4",
@@ -728,9 +877,9 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
           localStorage.setItem(SAMPLE_CACHE_KEY, JSON.stringify({
             ordered: orderedStops,
             arrow: formatArrowString(orderedStops),
-            totalsLive: { distance_m: liveTotalDistanceM, duration_s: liveTotalDurationS },
-            totalsTypical: trafficOn ? { distance_m: liveTotalDistanceM, duration_s: typicalTotalDurationS } : null,
-            geojson,
+            totalsLive: totalsLive,
+            totalsTypical: totalsTypical,
+            geojson: lastRouteGeojsonRef.current,
             paint: lastPaintRef.current,
             markers: markerData,
           }));
@@ -743,7 +892,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     } finally {
       setLoading(false);
     }
-  }, [start, destinations, trafficOn, drawRoute, updateMarkers, fitToBounds, attachHoverTooltip, isPro, checkUsage, recordUsage]);
+  }, [start, destinations, trafficOn, drawRoute, updateMarkers, fitToBounds, attachHoverTooltip, isPro, checkUsage, recordUsage, lockedStops, totalsLive, totalsTypical]);
 
   const addDestination = () => {
     if (!canAddDestination) return;
@@ -815,6 +964,8 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     setTotalsTypical(null);
     setRouteOptimized(false);
     setIsSampleRoute(false);
+    setLockedStops(new Set());
+    setServiceTimes({});
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
     const map = mapRef.current;
@@ -844,6 +995,9 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     const oldIndex = ordered.findIndex((_, i) => `stop-${i}` === active.id);
     const newIndex = ordered.findIndex((_, i) => `stop-${i}` === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
+
+    // Don't allow dragging locked stops
+    if (lockedStops.has(ordered[oldIndex].order)) return;
 
     const reordered = arrayMove(ordered, oldIndex, newIndex).map((stop, i) => ({
       ...stop,
@@ -890,7 +1044,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     } catch {
       // silently fail, keep the reordered list
     }
-  }, [ordered, drawRoute, updateMarkers]);
+  }, [ordered, drawRoute, updateMarkers, lockedStops]);
 
   const handleTrafficChoice = (choice: boolean) => {
     setTrafficOn(choice);
@@ -1185,14 +1339,21 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <CardTitle className="text-base font-semibold">Optimized Route</CardTitle>
               <div className="flex items-center gap-3 flex-wrap">
-                {totalsLive && (
-                  <span className="text-sm text-muted-foreground">
-                    {units === 'metric'
-                      ? `${toKm(totalsLive.distance_m).toFixed(1)} km`
-                      : `${toMiles(totalsLive.distance_m).toFixed(1)} mi`
-                    } • {toMinutes(totalsLive.duration_s).toFixed(0)} min
-                  </span>
-                )}
+                {totalsLive && (() => {
+                  const drivingMin = toMinutes(totalsLive.duration_s).toFixed(0);
+                  const totalServiceMin = isPro ? Object.values(serviceTimes).reduce((sum, v) => sum + (v || 0), 0) : 0;
+                  const distStr = units === 'metric'
+                    ? `${toKm(totalsLive.distance_m).toFixed(1)} km`
+                    : `${toMiles(totalsLive.distance_m).toFixed(1)} mi`;
+                  return (
+                    <span className="text-sm text-muted-foreground">
+                      {distStr} • {drivingMin} min driving
+                      {isPro && totalServiceMin > 0 && (
+                        <> + {totalServiceMin} min service = <span className="font-semibold text-foreground">{parseInt(drivingMin) + totalServiceMin} min total</span></>
+                      )}
+                    </span>
+                  );
+                })()}
                 <Select value={units} onValueChange={(value) => setUnits(value as 'metric' | 'imperial')}>
                   <SelectTrigger className="w-20 h-8">
                     <SelectValue />
@@ -1220,6 +1381,20 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
                       units={units}
                       shortLabel={shortLabel}
                       onRowClick={handleRowClick}
+                      isLocked={lockedStops.has(stop.order)}
+                      serviceMins={serviceTimes[stop.order] || 0}
+                      isPro={isPro}
+                      onToggleLock={(order) => {
+                        setLockedStops(prev => {
+                          const next = new Set(prev);
+                          if (next.has(order)) next.delete(order); else next.add(order);
+                          return next;
+                        });
+                      }}
+                      onServiceChange={(order, mins) => {
+                        setServiceTimes(prev => ({ ...prev, [order]: mins }));
+                      }}
+                      onProFeatureClick={() => setShowProFeatureNudge(true)}
                     />
                   ))}
                 </ul>
@@ -1381,7 +1556,33 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Export Legs Modal */}
+      {/* Pro Feature Nudge Dialog */}
+      <AlertDialog open={showProFeatureNudge} onOpenChange={setShowProFeatureNudge}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-accent" />
+              Take control of your day
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Upgrade to ZippyRouter Pro to lock specific stops and calculate accurate ETAs with service times.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continue Free</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('open-modal', { detail: 'pricing' }));
+              }}
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+            >
+              Upgrade to Pro
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
       <AlertDialog open={showExportModal} onOpenChange={setShowExportModal}>
         <AlertDialogContent>
           <AlertDialogHeader>
