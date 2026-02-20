@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, Zap, Route, Upload, MousePointerClick, ExternalLink, X, Check } from "lucide-react";
+import { CheckCircle, Zap, Route, Upload, MousePointerClick, ExternalLink, X, Check, ClipboardPaste, Link, Lock, Clock, Move, Car } from "lucide-react";
 import zippyLogo from "@/assets/zippy-logo.png";
 import heroPhoneBg from "@/assets/hero-phone-bg.png";
 import GlobalModal from "@/components/modals/GlobalModal";
@@ -278,7 +278,88 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* PAS Narrative */}
+      {/* Advanced Features Grid */}
+      <section className="container mx-auto px-4 py-16">
+        <h2 className="text-3xl font-bold text-center text-foreground mb-3">Everything You Need to Finish Your Route Faster</h2>
+        <p className="text-center text-muted-foreground mb-10 max-w-2xl mx-auto">
+          From AI-powered address parsing to real-time traffic, every feature is designed to get you on the road faster.
+        </p>
+        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {/* Card 1 - Smart Paste */}
+          <Card className="p-6 border border-border/60 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="pt-0 text-center space-y-3">
+              <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
+                <ClipboardPaste className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">AI Smart-Paste</h3>
+              <p className="text-sm text-muted-foreground">Paste messy text from emails or notes. Our AI extracts addresses in seconds.</p>
+            </CardContent>
+          </Card>
+          {/* Card 2 - Leg Chaining */}
+          <Card className="p-6 border border-border/60 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="pt-0 text-center space-y-3">
+              <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
+                <Link className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">The Google Bypass</h3>
+              <p className="text-sm text-muted-foreground">Plan 25 stops at once. We auto-split your route into easy 9-stop legs for Google/Apple Maps.</p>
+            </CardContent>
+          </Card>
+          {/* Card 3 - Stop Locking (PRO) */}
+          <Card className="p-6 border-2 border-accent/30 shadow-sm hover:shadow-md transition-shadow relative">
+            <span className="absolute top-3 right-3 text-[10px] font-bold bg-accent/20 text-accent px-2 py-0.5 rounded-full">PRO</span>
+            <CardContent className="pt-0 text-center space-y-3">
+              <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
+                <Lock className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">Stop Locking</h3>
+              <p className="text-sm text-muted-foreground">Lock 'must-visit' stops at specific times. The AI optimizes the rest around your schedule.</p>
+            </CardContent>
+          </Card>
+          {/* Card 4 - Service Times (PRO) */}
+          <Card className="p-6 border-2 border-accent/30 shadow-sm hover:shadow-md transition-shadow relative">
+            <span className="absolute top-3 right-3 text-[10px] font-bold bg-accent/20 text-accent px-2 py-0.5 rounded-full">PRO</span>
+            <CardContent className="pt-0 text-center space-y-3">
+              <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
+                <Clock className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">Accurate ETAs</h3>
+              <p className="text-sm text-muted-foreground">Add service minutes for each stop to see exactly when you'll finish your day.</p>
+            </CardContent>
+          </Card>
+          {/* Card 5 - Drag and Drop */}
+          <Card className="p-6 border border-border/60 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="pt-0 text-center space-y-3">
+              <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
+                <Move className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">Manual Override</h3>
+              <p className="text-sm text-muted-foreground">Don't like the AI path? Simply drag and drop stops to reorder. The map updates instantly.</p>
+            </CardContent>
+          </Card>
+          {/* Card 6 - Live Traffic */}
+          <Card className="p-6 border border-border/60 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="pt-0 text-center space-y-3">
+              <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
+                <Car className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">Live Traffic</h3>
+              <p className="text-sm text-muted-foreground">Powered by Mapbox real-time data to avoid Toronto/US congestion and save on fuel.</p>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="text-center mt-10">
+          <Button
+            onClick={onGetStarted}
+            size="lg"
+            className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold"
+          >
+            Start Planning Your First Route (Free)
+          </Button>
+        </div>
+      </section>
+
+
       <section className="bg-muted/30 py-16">
         <div className="container mx-auto px-4 max-w-3xl text-center">
           <p className="text-base sm:text-lg text-foreground leading-relaxed">
