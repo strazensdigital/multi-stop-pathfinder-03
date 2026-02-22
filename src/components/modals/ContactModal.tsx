@@ -5,23 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { Send, Loader2 } from "lucide-react";
 
 interface ContactModalProps {
   onClose: () => void;
 }
-
-const categories = [
-  { value: "bug", label: "🐛 Bug Report", description: "Something isn't working correctly" },
-  { value: "billing", label: "💳 Billing", description: "Payment, invoices, or subscription issues" },
-  { value: "bulk", label: "📦 Bulk / Enterprise", description: "High-volume routing needs" },
-  { value: "api", label: "🔌 API Access", description: "Integrate ZippyRouter into your tools" },
-  { value: "ultimate", label: "🏷️ White-label / Ultimate", description: "Custom branding & reselling" },
-  { value: "feature", label: "💡 Feature Request", description: "Suggest a new feature" },
-  { value: "partnership", label: "🤝 Partnership", description: "Business collaboration opportunities" },
-  { value: "other", label: "❓ Other", description: "Anything else" },
-];
 
 const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
   const { toast } = useToast();
@@ -35,29 +22,22 @@ const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.category) {
-      toast({ title: "Please select a category", variant: "destructive" });
-      return;
-    }
     setIsSubmitting(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("send-contact", {
-        body: formData,
-      });
-
-      if (error) throw error;
-
+      // Simulate form submission
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       toast({
-        title: "Message sent! ✉️",
-        description: "We'll get back to you within 1–2 business days.",
+        title: "Message sent!",
+        description: "Thanks! We'll get back to you soon.",
       });
+      
       onClose();
-    } catch (error: any) {
-      console.error("Contact form error:", error);
+    } catch (error) {
       toast({
-        title: "Failed to send",
-        description: "Please try again or email us directly at support@zippyrouter.com",
+        title: "Error",
+        description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -70,21 +50,16 @@ const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="space-y-5 py-2 max-h-[80vh] overflow-y-auto">
+    <div className="space-y-6 py-4 max-h-[80vh] overflow-y-auto">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-foreground mb-1">Get in touch</h2>
-        <p className="text-sm text-muted-foreground">
-          We typically reply within 1–2 business days at{" "}
-          <a href="mailto:support@zippyrouter.com" className="text-accent hover:underline">
-            support@zippyrouter.com
-          </a>
-        </p>
+        <h2 className="text-3xl font-bold text-foreground mb-2">Contact us</h2>
+        <p className="text-muted-foreground">We typically reply within 1–2 business days.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="name" className="text-xs font-medium">Name *</Label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Name *</Label>
             <Input
               id="name"
               type="text"
@@ -92,11 +67,10 @@ const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
               value={formData.name}
               onChange={(e) => handleChange("name", e.target.value)}
               placeholder="Your name"
-              maxLength={100}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-xs font-medium">Email *</Label>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email *</Label>
             <Input
               id="email"
               type="email"
@@ -104,66 +78,62 @@ const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
               value={formData.email}
               onChange={(e) => handleChange("email", e.target.value)}
               placeholder="your@email.com"
-              maxLength={255}
             />
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="category" className="text-xs font-medium">What's this about? *</Label>
-          <Select value={formData.category} onValueChange={(value) => handleChange("category", value)}>
+        <div className="space-y-2">
+          <Label htmlFor="category">Category *</Label>
+          <Select required value={formData.category} onValueChange={(value) => handleChange("category", value)}>
             <SelectTrigger>
-              <SelectValue placeholder="Choose a category…" />
+              <SelectValue placeholder="Select a category" />
             </SelectTrigger>
             <SelectContent>
-              {categories.map((cat) => (
-                <SelectItem key={cat.value} value={cat.value}>
-                  <span className="flex items-center gap-2">
-                    <span>{cat.label}</span>
-                    <span className="text-xs text-muted-foreground hidden sm:inline">— {cat.description}</span>
-                  </span>
-                </SelectItem>
-              ))}
+              <SelectItem value="bug">Bug report</SelectItem>
+              <SelectItem value="billing">Billing</SelectItem>
+              <SelectItem value="bulk">Bulk requests</SelectItem>
+              <SelectItem value="api">API access</SelectItem>
+              <SelectItem value="ultimate">White-label / Ultimate</SelectItem>
+              <SelectItem value="feature">Feature request</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="message" className="text-xs font-medium">Message *</Label>
+        <div className="space-y-2">
+          <Label htmlFor="message">Message *</Label>
           <Textarea
             id="message"
             required
-            rows={4}
+            rows={5}
             value={formData.message}
             onChange={(e) => handleChange("message", e.target.value)}
-            placeholder="Tell us how we can help…"
-            maxLength={2000}
+            placeholder="Tell us how we can help..."
           />
-          <p className="text-xs text-muted-foreground text-right">{formData.message.length}/2000</p>
         </div>
 
-        <div className="flex gap-3 pt-2">
+        <div className="space-y-2">
+          <Label htmlFor="attachment">Attachment (optional)</Label>
+          <Input
+            id="attachment"
+            type="file"
+            accept="*/*"
+          />
+        </div>
+
+        <div className="flex gap-3 pt-4">
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
+            className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground"
           >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Sending…
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4" />
-                Send message
-              </>
-            )}
+            {isSubmitting ? "Sending..." : "Send message"}
           </Button>
           <Button
             type="button"
             variant="ghost"
             onClick={onClose}
+            className="flex-1"
           >
             Cancel
           </Button>
