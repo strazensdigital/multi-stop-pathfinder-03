@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, Zap, Route, Upload, MousePointerClick, ExternalLink, X, Check } from "lucide-react";
+import { CheckCircle, Zap, Route, Upload, MousePointerClick, ExternalLink, X, Check, ClipboardPaste, Link, Lock, Clock, Move, Car } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import zippyLogo from "@/assets/zippy-logo.png";
 import heroPhoneBg from "@/assets/hero-phone-bg.png";
 import GlobalModal from "@/components/modals/GlobalModal";
@@ -275,6 +276,81 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* Everything You Need Section */}
+      <section className="container mx-auto px-4 py-16">
+        <h2 className="text-3xl font-bold text-center text-foreground mb-3">Everything You Need to Finish Your Route Faster</h2>
+        <p className="text-center text-muted-foreground mb-10 max-w-2xl mx-auto">
+          Built for drivers, dispatchers, and field teams who need to get more done in less time.
+        </p>
+        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <Card className="p-6 border hover:border-accent/50 transition-colors hover:shadow-lg">
+            <CardContent className="pt-4">
+              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
+                <ClipboardPaste className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold mb-2 text-foreground">AI Smart-Paste</h3>
+              <p className="text-muted-foreground text-sm">Paste messy text from emails or notes. Our AI extracts addresses in seconds.</p>
+            </CardContent>
+          </Card>
+          <Card className="p-6 border hover:border-accent/50 transition-colors hover:shadow-lg">
+            <CardContent className="pt-4">
+              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
+                <Link className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold mb-2 text-foreground">The Google Bypass</h3>
+              <p className="text-muted-foreground text-sm">Plan 25 stops at once. We auto-split your route into easy 9-stop legs for Google/Apple Maps.</p>
+            </CardContent>
+          </Card>
+          <Card className="p-6 border-2 border-accent/30 hover:border-accent/60 transition-colors hover:shadow-lg relative">
+            <Badge variant="outline" className="absolute top-3 right-3 text-[10px] border-accent/40 text-accent">PRO</Badge>
+            <CardContent className="pt-4">
+              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
+                <Lock className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold mb-2 text-foreground">Stop Locking</h3>
+              <p className="text-muted-foreground text-sm">Lock 'must-visit' stops at specific times. The AI optimizes the rest around your schedule.</p>
+            </CardContent>
+          </Card>
+          <Card className="p-6 border-2 border-accent/30 hover:border-accent/60 transition-colors hover:shadow-lg relative">
+            <Badge variant="outline" className="absolute top-3 right-3 text-[10px] border-accent/40 text-accent">PRO</Badge>
+            <CardContent className="pt-4">
+              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
+                <Clock className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold mb-2 text-foreground">Accurate ETAs</h3>
+              <p className="text-muted-foreground text-sm">Add service minutes for each stop to see exactly when you'll finish your day.</p>
+            </CardContent>
+          </Card>
+          <Card className="p-6 border hover:border-accent/50 transition-colors hover:shadow-lg">
+            <CardContent className="pt-4">
+              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
+                <Move className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold mb-2 text-foreground">Manual Override</h3>
+              <p className="text-muted-foreground text-sm">Don't like the AI path? Simply drag and drop stops to reorder. The map updates instantly.</p>
+            </CardContent>
+          </Card>
+          <Card className="p-6 border hover:border-accent/50 transition-colors hover:shadow-lg">
+            <CardContent className="pt-4">
+              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
+                <Car className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold mb-2 text-foreground">Live Traffic</h3>
+              <p className="text-muted-foreground text-sm">Powered by Mapbox real-time data to avoid congestion and save on fuel.</p>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="text-center mt-10">
+          <Button 
+            onClick={onGetStarted}
+            size="lg" 
+            className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold"
+          >
+            Start Planning Your First Route (Free)
+          </Button>
         </div>
       </section>
 

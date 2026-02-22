@@ -23,8 +23,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRoutes } from "@/hooks/useRoutes";
 import { useUsageGate } from "@/hooks/useUsageGate";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { Save, Loader2, Lock, Star, GripVertical, Download, Info } from "lucide-react";
+import { Save, Loader2, Lock, LockOpen, Star, GripVertical, Download, Info, Clock } from "lucide-react";
 import { AiPasteBox } from "@/components/AiPasteBox";
+import { Badge } from "@/components/ui/badge";
 
 // 5-stop sample route across Toronto
 const SAMPLE_STOPS = [
@@ -184,8 +185,14 @@ const SortableStopItem: React.FC<{
   units: 'metric' | 'imperial';
   shortLabel: (s: string) => string;
   onRowClick: (stop: OrderedStop) => void;
-}> = ({ id, stop, units, shortLabel, onRowClick }) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  isLocked: boolean;
+  serviceMins: number;
+  isPro: boolean;
+  onToggleLock: (index: number) => void;
+  onServiceChange: (index: number, mins: number) => void;
+  onProFeatureClick: () => void;
+}> = ({ id, stop, units, shortLabel, onRowClick, isLocked, serviceMins, isPro, onToggleLock, onServiceChange, onProFeatureClick }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled: isLocked });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -196,19 +203,25 @@ const SortableStopItem: React.FC<{
     <li
       ref={setNodeRef}
       style={style}
-      className="py-4 cursor-pointer hover:bg-muted/50 rounded-md px-2 transition-colors"
+      className={`py-4 cursor-pointer hover:bg-muted/50 rounded-md px-2 transition-colors ${isLocked ? 'border-l-2 border-accent' : ''}`}
       onClick={() => onRowClick(stop)}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0 overflow-hidden">
-          <button
-            className="mt-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground shrink-0"
-            {...attributes}
-            {...listeners}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
+          {!isLocked ? (
+            <button
+              className="mt-1 cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground shrink-0"
+              {...attributes}
+              {...listeners}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+          ) : (
+            <span className="mt-1 text-accent shrink-0">
+              <Lock className="h-4 w-4" />
+            </span>
+          )}
           <span
             className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-medium mt-0.5 ${
               stop.order === 0 ? 'bg-[#7c3aed] text-white' : 'bg-[#06b6d4] text-white'
@@ -229,6 +242,47 @@ const SortableStopItem: React.FC<{
             } • {toMinutes(stop.toNext.duration_s).toFixed(0)} min
           </span>
         )}
+      </div>
+      {/* Pro Feature Container */}
+      <div className="flex items-center gap-3 mt-2 ml-10" onClick={(e) => e.stopPropagation()}>
+        {/* Lock Toggle */}
+        <button
+          className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors ${
+            isPro
+              ? isLocked
+                ? 'bg-accent/15 text-accent'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
+              : 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed'
+          }`}
+          onClick={() => isPro ? onToggleLock(stop.order) : onProFeatureClick()}
+        >
+          {isLocked ? <Lock className="h-3 w-3" /> : <LockOpen className="h-3 w-3" />}
+          {isLocked ? 'Locked' : 'Lock'}
+          {!isPro && <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 h-4 border-accent/40 text-accent">PRO</Badge>}
+        </button>
+        {/* Service Duration */}
+        <div className={`flex items-center gap-1 ${!isPro ? 'opacity-50 cursor-not-allowed' : ''}`}>
+          <Clock className="h-3 w-3 text-muted-foreground" />
+          <input
+            type="number"
+            min={0}
+            max={999}
+            value={serviceMins || ''}
+            placeholder="0"
+            className={`w-12 text-xs text-center bg-muted border border-border/50 rounded px-1 py-0.5 ${
+              !isPro ? 'pointer-events-none' : ''
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isPro) onProFeatureClick();
+            }}
+            onChange={(e) => {
+              if (isPro) onServiceChange(stop.order, parseInt(e.target.value) || 0);
+            }}
+          />
+          <span className="text-xs text-muted-foreground">min</span>
+          {!isPro && <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-accent/40 text-accent">PRO</Badge>}
+        </div>
       </div>
     </li>
   );
@@ -262,7 +316,10 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
   const { locked, isPro, maxStops, checkUsage, recordUsage, remainingUses, MAX_FREE_USES } = useUsageGate();
   const { bookmarks, matchBookmarks, addBookmark } = useBookmarks();
   const [showUpgradeNudge, setShowUpgradeNudge] = useState(false);
+  const [showProFeatureNudge, setShowProFeatureNudge] = useState(false);
   const [savingRoute, setSavingRoute] = useState(false);
+  const [lockedStops, setLockedStops] = useState<Set<number>>(new Set());
+  const [serviceTimes, setServiceTimes] = useState<Record<number, number>>({});
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const routeSourceId = useRef<string>("optimized-route");
@@ -815,6 +872,8 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     setTotalsTypical(null);
     setRouteOptimized(false);
     setIsSampleRoute(false);
+    setLockedStops(new Set());
+    setServiceTimes({});
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
     const map = mapRef.current;
@@ -825,6 +884,23 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     routeGeometry.current = null;
     setShowNewRouteDialog(false);
   };
+
+  const handleToggleLock = useCallback((stopOrder: number) => {
+    setLockedStops(prev => {
+      const next = new Set(prev);
+      if (next.has(stopOrder)) next.delete(stopOrder);
+      else next.add(stopOrder);
+      return next;
+    });
+  }, []);
+
+  const handleServiceChange = useCallback((stopOrder: number, mins: number) => {
+    setServiceTimes(prev => ({ ...prev, [stopOrder]: mins }));
+  }, []);
+
+  const totalServiceMins = useMemo(() => {
+    return Object.values(serviceTimes).reduce((sum, v) => sum + (v || 0), 0);
+  }, [serviceTimes]);
 
   // Dismiss sample when user edits any field
   const dismissSample = useCallback(() => {
@@ -844,6 +920,9 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
     const oldIndex = ordered.findIndex((_, i) => `stop-${i}` === active.id);
     const newIndex = ordered.findIndex((_, i) => `stop-${i}` === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
+
+    // Prevent dragging locked stops
+    if (lockedStops.has(ordered[oldIndex].order)) return;
 
     const reordered = arrayMove(ordered, oldIndex, newIndex).map((stop, i) => ({
       ...stop,
@@ -1190,7 +1269,10 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
                     {units === 'metric'
                       ? `${toKm(totalsLive.distance_m).toFixed(1)} km`
                       : `${toMiles(totalsLive.distance_m).toFixed(1)} mi`
-                    } • {toMinutes(totalsLive.duration_s).toFixed(0)} min
+                    } • {toMinutes(totalsLive.duration_s).toFixed(0)} min driving
+                    {isPro && totalServiceMins > 0 && (
+                      <> + {totalServiceMins} min service = {Math.round(toMinutes(totalsLive.duration_s) + totalServiceMins)} min total</>
+                    )}
                   </span>
                 )}
                 <Select value={units} onValueChange={(value) => setUnits(value as 'metric' | 'imperial')}>
@@ -1220,6 +1302,12 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
                       units={units}
                       shortLabel={shortLabel}
                       onRowClick={handleRowClick}
+                      isLocked={lockedStops.has(stop.order)}
+                      serviceMins={serviceTimes[stop.order] || 0}
+                      isPro={isPro}
+                      onToggleLock={handleToggleLock}
+                      onServiceChange={handleServiceChange}
+                      onProFeatureClick={() => setShowProFeatureNudge(true)}
                     />
                   ))}
                 </ul>
@@ -1371,6 +1459,32 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
             <AlertDialogAction
               onClick={() => {
                 // Trigger pricing modal via global modal system
+                window.dispatchEvent(new CustomEvent('open-modal', { detail: 'pricing' }));
+              }}
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+            >
+              Upgrade to Pro
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Pro Feature Nudge Dialog */}
+      <AlertDialog open={showProFeatureNudge} onOpenChange={setShowProFeatureNudge}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-accent" />
+              Take control of your day
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Upgrade to ZippyRouter Pro to lock specific stops and calculate accurate ETAs with service times.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continue Free</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
                 window.dispatchEvent(new CustomEvent('open-modal', { detail: 'pricing' }));
               }}
               className="bg-accent text-accent-foreground hover:bg-accent/90"
