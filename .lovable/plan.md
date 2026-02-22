@@ -1,126 +1,59 @@
-## Tiered "Dispatcher Mode" — Stop Locking, Service Times, and Enhanced Drag-and-Drop
 
-This update adds Pro-gated features (stop locking and service duration inputs) to every stop card, modifies the optimization algorithm to respect locked stops, and updates the total time display to include service durations for Pro users.
+## Functional Contact Form with Email Routing to support@zippyrouter.com
 
----
-
-### 1. Enhanced Stop Card UI (SortableStopItem)
-
-Expand the existing `SortableStopItem` component to include a "Pro Feature Container" below each stop's address:
-
-- **Lock Toggle**: A small toggle/button (using the existing `Lock` icon) to pin a stop at its current position. State stored in a new `lockedStops` Set and `serviceTimes` Record at the parent level.
-- **Service Duration Input**: A compact number input (e.g., "15 min") for time spent at the location.
-- **Visual Paywall**: For non-Pro users, render both controls as disabled/greyed-out with a small "PRO" badge. Clicking either triggers the upgrade modal with the message: *"Take control of your day. Upgrade to ZippyRouter Pro to lock specific stops and calculate accurate ETAs with service times."*
-
-The SortableStopItem props will be extended:
-
-```text
-+ isLocked: boolean
-+ serviceMins: number
-+ isPro: boolean
-+ onToggleLock: (index: number) => void
-+ onServiceChange: (index: number, mins: number) => void
-+ onProFeatureClick: () => void
-```
+This plan replaces the current simulated contact form with a real email-sending flow using Resend (already configured) via a new Supabase Edge Function.
 
 ---
 
-### 2. Parent State Management (MapboxRoutePlanner)
+### 1. New Edge Function: `send-contact-email`
 
-Add two new state variables:
+**File: `supabase/functions/send-contact-email/index.ts`**
 
-- `lockedStops: Set<number>` — indices of stops pinned by the user
-- `serviceTimes: Record<number, number>` — minutes spent at each stop (keyed by stop index)
+- Accepts POST requests with JSON body: `{ name, email, category, message }`
+- Validates all required fields and enforces length limits (name: 100 chars, email: 255, message: 5000)
+- Uses the existing `RESEND_API_KEY` secret to send a nicely formatted HTML email to **support@zippyrouter.com**
+- The email includes:
+  - Subject line: `[ZippyRouter Contact] {Category} from {Name}`
+  - Sender's name, email (as reply-to), category, and full message
+  - Clean HTML formatting for easy reading
+- Sets the `from` address to `ZippyRouter <noreply@zippyrouter.com>` (requires verified domain on Resend -- see note below)
+- Includes proper CORS headers for browser requests
+- Returns success/error JSON response
 
-These reset when a new route is created or the ordered list changes structurally.
-
----
-
-### 3. Optimization Logic — Respecting Locked Stops
-
-Modify `optimizeRoute`:
-
-- **Pro users**: Before calling the Mapbox Optimization API, identify locked stops. Send only unlocked stops to the optimizer. After receiving the optimized order, merge unlocked stops back around the locked ones at their pinned positions.
-- **Free users**: Optimize the entire list as before, ignoring any lock state.
-
-Implementation approach:
-
-1. Extract locked stops with their fixed positions
-2. Collect unlocked stops' coordinates
-3. Call Optimization API with unlocked stops only
-4. Reconstruct the full ordered list by inserting locked stops at their original indices
-5. Fetch route geometry via Directions API for the final merged sequence
+**Config update: `supabase/config.toml`**
+- Add `[functions.send-contact-email]` with `verify_jwt = false` (public contact form)
 
 ---
 
-### 4. Total Time Display Update
+### 2. Updated Contact Modal
 
-In the "Optimized Route" card header where totals are shown:
+**File: `src/components/modals/ContactModal.tsx`**
 
-- **Pro users**: Display `Total Time = Driving Time + Sum of Service Durations`. Show as two parts: "42 min driving + 30 min service = 72 min total"
-- **Free users**: Display driving time only (current behavior)
-
----
-
-### 5. Drag-and-Drop with Lock Awareness
-
-Update `handleDragEnd`:
-
-- Locked stops cannot be dragged (disable drag handle for locked items)
-- When reordering, locked stops stay in place; only unlocked stops shift around them
-- After reorder, recalculate route via Directions API as currently done
+- Replace the simulated `setTimeout` with a real call to the edge function via `supabase.functions.invoke('send-contact-email', ...)`
+- Add client-side validation with Zod: name (required, max 100), email (required, valid format), category (required), message (required, max 5000)
+- Show inline validation errors below each field
+- Remove the file attachment input (not supported without storage upload flow -- keeps things clean)
+- Improve the form layout with better spacing and a success state animation
+- On success: show toast and close modal
+- On error: show descriptive toast with the error message
 
 ---
 
-### 6. Upgrade Modal for Free Users
+### 3. Important Note on Email Domain
 
-Reuse the existing `AlertDialog` upgrade nudge pattern. When a free user clicks any Pro feature (lock toggle or service input):
-
-- Show modal with title: "Take control of your day"
-- Body: "Upgrade to ZippyRouter Pro to lock specific stops and calculate accurate ETAs with service times."
-- Buttons: "Continue Free" and "Upgrade to Pro" (triggers pricing modal)
-
----
-
-### 7. Map Continuity
-
-No changes needed — the existing `handleDragEnd` and `optimizeRoute` already update the Mapbox route line and markers. The export-to-legs logic uses the current `ordered` state, so it automatically reflects any reordering.
+The `from` address in Resend must use a verified domain. You will need to make sure **zippyrouter.com** is verified in your Resend dashboard at https://resend.com/domains. If it is not yet verified:
+- You can temporarily use `onboarding@resend.dev` as the from address (Resend's test domain)
+- Or verify `zippyrouter.com` in Resend to send from `noreply@zippyrouter.com`
 
 ---
 
 ### Technical Summary
 
-**Files to modify (1 file):**
+**Files to create:**
+1. `supabase/functions/send-contact-email/index.ts` -- edge function for sending contact emails
 
-1. `src/components/MapboxRoutePlanner.tsx`
-  - Extend `SortableStopItem` with lock toggle, service input, and Pro gating
-  - Add `lockedStops` and `serviceTimes` state
-  - Modify `optimizeRoute` to handle locked stops for Pro users
-  - Update total time display to include service durations
-  - Add Pro feature upgrade modal
-  - Disable drag on locked stops
+**Files to modify:**
+2. `supabase/config.toml` -- add function config entry
+3. `src/components/modals/ContactModal.tsx` -- wire up to real edge function, add validation
 
-**No new files or dependencies required.** All UI primitives (Switch, Input, Lock icon, AlertDialog, Tooltip) are already imported.
-
-> **Prompt: Add "Advanced Features" Section to Landing Page**
->
-> **1. Layout:** > - Create a new section below the Comparison Table titled "**Everything You Need to Finish Your Route Faster**".
->
-> - Use a clean, 3-column grid layout for desktop (1-column for mobile).
->
-> **2. Content & Icons:**
->
-> - **Card 1 (Smart-Paste):** Use a 'Paste' icon. Title: "AI Smart-Paste". Copy: "Paste messy text from emails or notes. Our AI extracts addresses in seconds."
-> - **Card 2 (Leg-Chaining):** Use a 'Link' icon. Title: "The Google Bypass". Copy: "Plan 25 stops at once. We auto-split your route into easy 9-stop legs for Google/Apple Maps."
-> - **Card 3 (Dispatcher Mode - PRO):** Use a 'Lock' icon and a small 'PRO' badge. Title: "Stop Locking". Copy: "Lock 'must-visit' stops at specific times. The AI optimizes the rest around your schedule."
-> - **Card 4 (Service Times - PRO):** Use a 'Clock' icon and a small 'PRO' badge. Title: "Accurate ETAs". Copy: "Add service minutes for each stop to see exactly when you'll finish your day."
-> - **Card 5 (Drag-and-Drop):** Use a 'Move' icon. Title: "Manual Override". Copy: "Don't like the AI path? Simply drag and drop stops to reorder. The map updates instantly."
-> - **Card 6 (Live Traffic):** Use a 'Car' icon. Title: "Live Traffic". Copy: "Powered by Mapbox real-time data to avoid Toronto/US congestion and save on fuel."
->
-> **3. Styling:**
->
-> - Cards should have a subtle shadow and hover effect.
-> - Ensure the 'PRO' features are visually distinct (maybe a thin border in your brand color) to drive interest in the paid tier.
-> - Add a final Call to Action (CTA) button at the bottom: "**Start Planning Your First Route (Free)**".
-
----
+**No new dependencies required.** Uses existing `RESEND_API_KEY` secret and Supabase client.
