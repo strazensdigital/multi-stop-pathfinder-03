@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.extract-addresses]
 verify_jwt = false
+
+[functions.send-contact-email]
+verify_jwt = false
