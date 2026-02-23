@@ -13,11 +13,11 @@ const FAQModal: React.FC<FAQModalProps> = ({ onClose }) => {
     },
     {
       question: "Is it really free up to 9 stops?",
-      answer: "Yes. No card needed. After 1–2 uses we'll ask you to create a free account so you can save preferences and we can prevent abuse."
+      answer: "Yes. No login required, no card needed. After 1–2 uses we'll ask you to create a free account so you can save preferences and we can prevent abuse."
     },
     {
       question: "What do I get with Pro?",
-      answer: "Unlimited stops, the ability to lock a specific stop position (e.g., fixed end), priority support, and early access to AI address import."
+      answer: "25 stops, the ability to lock a specific stop position (e.g., fixed end), priority support, and early access to AI address import."
     },
     {
       question: "Can I lock my final destination?",

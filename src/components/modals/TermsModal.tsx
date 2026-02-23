@@ -10,7 +10,7 @@ const TermsModal: React.FC<TermsModalProps> = ({ onClose }) => {
       <div className="text-center">
         <h2 className="text-3xl font-bold text-foreground mb-2">Terms of Service</h2>
         <p className="text-sm text-muted-foreground italic">
-          Last updated: February 2025
+          Last updated: February 2026
         </p>
       </div>
 

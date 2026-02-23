@@ -10,7 +10,7 @@ const PrivacyModal: React.FC<PrivacyModalProps> = ({ onClose }) => {
       <div className="text-center">
         <h2 className="text-3xl font-bold text-foreground mb-2">Privacy Policy</h2>
         <p className="text-sm text-muted-foreground italic">
-          Last updated: February 2025
+          Last updated: February 2026
         </p>
       </div>
 
@@ -18,7 +18,7 @@ const PrivacyModal: React.FC<PrivacyModalProps> = ({ onClose }) => {
         <section>
           <h3 className="text-lg font-semibold mb-2 text-accent">Who we are</h3>
           <p className="text-muted-foreground">
-            ZippyRouter is a product of Strazens Digital, operated from Ontario, Canada. Contact: privacy@zippyrouter.com
+            ZippyRouter is a product of Strazens Digital, operated from Ontario, Canada. Contact: support@zippyrouter.com
           </p>
         </section>
 
