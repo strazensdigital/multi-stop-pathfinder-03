@@ -132,8 +132,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 <span className="text-white">Paste Your List. </span>
                 <span className="text-accent">Optimize Your Route.</span>
               </h1>
-              <p className="text-sm sm:text-base md:text-lg text-white/70 mb-8 max-w-xl leading-relaxed">
+              <p className="text-sm sm:text-base md:text-lg text-white/70 mb-4 max-w-xl leading-relaxed">
                 The AI-powered route planner that turns messy text into professional delivery routes. Break the 10-stop limit and optimize 25 addresses in one click.
+              </p>
+              <p className="text-xs sm:text-sm text-white/50 mb-8">
+                No login required · No credit card needed
               </p>
 
               {/* CTA Buttons */}
@@ -459,7 +462,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           </div>
           
           <div className="text-center text-muted-foreground text-sm mt-8">
-            © 2025 ZippyRouter. All rights reserved.
+            © 2026 ZippyRouter. All rights reserved.
           </div>
         </div>
       </footer>
