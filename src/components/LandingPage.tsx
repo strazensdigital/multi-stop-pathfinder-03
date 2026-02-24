@@ -11,18 +11,22 @@ import FAQModal from "@/components/modals/FAQModal";
 import PrivacyModal from "@/components/modals/PrivacyModal";
 import TermsModal from "@/components/modals/TermsModal";
 import ContactModal from "@/components/modals/ContactModal";
+import { AuthDialog } from "@/components/AuthDialog";
+import { useAuth } from "@/hooks/useAuth";
 
 interface LandingPageProps {
   onGetStarted: () => void;
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
+  const { user } = useAuth();
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [showFAQ, setShowFAQ] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showContact, setShowContact] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const heroRef = useRef<HTMLElement>(null);
 
@@ -469,7 +473,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
 
       {/* Global Modals */}
       <GlobalModal isOpen={showPricing} onClose={closeAllModals} title="Pricing">
-        <PricingModal onClose={closeAllModals} onGetStarted={onGetStarted} />
+        <PricingModal onClose={closeAllModals} onGetStarted={() => {
+          if (user) {
+            onGetStarted();
+          } else {
+            closeAllModals();
+            setShowAuth(true);
+          }
+        }} />
       </GlobalModal>
       <GlobalModal isOpen={showFAQ} onClose={closeAllModals} title="FAQ">
         <FAQModal onClose={closeAllModals} />
@@ -483,6 +494,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       <GlobalModal isOpen={showContact} onClose={closeAllModals} title="Contact Us">
         <ContactModal onClose={closeAllModals} />
       </GlobalModal>
+      <AuthDialog open={showAuth} onOpenChange={setShowAuth} />
     </div>
   );
 };

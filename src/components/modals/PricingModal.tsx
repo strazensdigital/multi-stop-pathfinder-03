@@ -79,7 +79,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onGetStarted }) =>
               <div className="text-sm text-muted-foreground">or $69 / year (save ~40%)</div>
             </div>
             <ul className="space-y-3 mb-6">
-              {["Unlimited stops", "Beat Google's 10-stop limit", "Priority email support", "Early access to AI address import (beta)"].map((item) => (
+              {["25 stops per route", "Beat Google's 10-stop limit", "Priority email support", "Early access to AI address import (beta)"].map((item) => (
                 <li key={item} className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
                   <span className="text-sm">{item}</span>
