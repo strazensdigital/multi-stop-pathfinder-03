@@ -1,59 +1,68 @@
 
-## Functional Contact Form with Email Routing to support@zippyrouter.com
 
-This plan replaces the current simulated contact form with a real email-sending flow using Resend (already configured) via a new Supabase Edge Function.
+## Plan: Fix Landing Page Pricing Flow, Stripe Key, and Annual Billing
 
----
+### Problem Summary
 
-### 1. New Edge Function: `send-contact-email`
-
-**File: `supabase/functions/send-contact-email/index.ts`**
-
-- Accepts POST requests with JSON body: `{ name, email, category, message }`
-- Validates all required fields and enforces length limits (name: 100 chars, email: 255, message: 5000)
-- Uses the existing `RESEND_API_KEY` secret to send a nicely formatted HTML email to **support@zippyrouter.com**
-- The email includes:
-  - Subject line: `[ZippyRouter Contact] {Category} from {Name}`
-  - Sender's name, email (as reply-to), category, and full message
-  - Clean HTML formatting for easy reading
-- Sets the `from` address to `ZippyRouter <noreply@zippyrouter.com>` (requires verified domain on Resend -- see note below)
-- Includes proper CORS headers for browser requests
-- Returns success/error JSON response
-
-**Config update: `supabase/config.toml`**
-- Add `[functions.send-contact-email]` with `verify_jwt = false` (public contact form)
+1. **Landing page pricing button behavior**: When clicking the Pro tier buttons in the pricing modal opened from the landing page, if the user isn't logged in, it calls `onGetStarted` which navigates to `/app` instead of opening the auth dialog (like the hamburger menu does).
+2. **Stripe test key**: You're currently using a test key -- you should switch to a live key.
+3. **Annual product**: Already exists in Stripe (product `prod_TwmQLCCvKV7BL1` with price `price_1Sysro3EdvVx6r8ZHYjmazba` at $69/year). No new Stripe product needed.
+4. **Cancellation handling**: When a user stops paying, the `check-subscription` edge function already handles this -- it checks Stripe for active subscriptions and updates the profile to "free" if none are found. So yes, cancellation/non-payment automatically downgrades the user.
 
 ---
 
-### 2. Updated Contact Modal
+### Changes
 
-**File: `src/components/modals/ContactModal.tsx`**
+#### 1. Fix PricingModal on Landing Page
 
-- Replace the simulated `setTimeout` with a real call to the edge function via `supabase.functions.invoke('send-contact-email', ...)`
-- Add client-side validation with Zod: name (required, max 100), email (required, valid format), category (required), message (required, max 5000)
-- Show inline validation errors below each field
-- Remove the file attachment input (not supported without storage upload flow -- keeps things clean)
-- Improve the form layout with better spacing and a success state animation
-- On success: show toast and close modal
-- On error: show descriptive toast with the error message
+**File: `src/components/LandingPage.tsx`**
+
+- Add auth state awareness by importing `useAuth` and `AuthDialog`
+- Change the `onGetStarted` callback passed to `PricingModal` so it opens the auth dialog instead of navigating to `/app`
+- Add an `AuthDialog` component to the landing page
+
+This way, when an unauthenticated user clicks "Get Pro" in the pricing modal on the landing page, they see the login/signup dialog (same as the hamburger menu behavior) instead of being redirected.
+
+#### 2. Update PricingModal Pro Features
+
+**File: `src/components/modals/PricingModal.tsx`**
+
+- Change "Unlimited stops" to "25 stops" in the Pro plan feature list to match the FAQ
+
+#### 3. Stripe Live Key
+
+This is a manual step for you:
+- Go to your [Stripe Dashboard](https://dashboard.stripe.com/apikeys) and copy the **live** secret key (starts with `sk_live_...`)
+- Then we can update the `STRIPE_SECRET_KEY` secret in Supabase with the live key
+- **Important**: Make sure your live Stripe account has the same products/prices, or create new ones. The price IDs will be different between test and live mode.
+
+#### 4. No Database Changes Needed
+
+- The `profiles` table already has `plan` and `plan_source` columns
+- The `check-subscription` function already syncs plan status from Stripe on every call
+- When a subscription is canceled or expires, Stripe marks it inactive, and `check-subscription` returns `plan: "free"` and updates the profile accordingly
 
 ---
 
-### 3. Important Note on Email Domain
+### How Cancellation Works (Already Implemented)
 
-The `from` address in Resend must use a verified domain. You will need to make sure **zippyrouter.com** is verified in your Resend dashboard at https://resend.com/domains. If it is not yet verified:
-- You can temporarily use `onboarding@resend.dev` as the from address (Resend's test domain)
-- Or verify `zippyrouter.com` in Resend to send from `noreply@zippyrouter.com`
+```text
+User stops paying
+       |
+       v
+Stripe marks subscription inactive/canceled
+       |
+       v
+Next time check-subscription runs (on page load / login)
+       |
+       v
+No active subscription found -> profile.plan set to "free"
+       |
+       v
+User loses Pro features
+```
 
----
+### Technical Details
 
-### Technical Summary
+The key fix is in `LandingPage.tsx` where the `PricingModal` receives `onGetStarted={onGetStarted}` which calls `navigate('/app')`. Instead, it should open an auth dialog locally, matching the hamburger menu pattern. After successful auth, the user can then proceed to checkout.
 
-**Files to create:**
-1. `supabase/functions/send-contact-email/index.ts` -- edge function for sending contact emails
-
-**Files to modify:**
-2. `supabase/config.toml` -- add function config entry
-3. `src/components/modals/ContactModal.tsx` -- wire up to real edge function, add validation
-
-**No new dependencies required.** Uses existing `RESEND_API_KEY` secret and Supabase client.
