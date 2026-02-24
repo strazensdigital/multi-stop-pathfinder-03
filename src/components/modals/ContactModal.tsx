@@ -29,6 +29,7 @@ const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,12 +54,7 @@ const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
 
       if (error) throw new Error(error.message || "Failed to send message");
 
-      toast({
-        title: "Message sent!",
-        description: "Thanks! We'll get back to you within 1–2 business days.",
-      });
-
-      onClose();
+      setIsSubmitted(true);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -74,6 +70,23 @@ const ContactModal: React.FC<ContactModalProps> = ({ onClose }) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
+
+  if (isSubmitted) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-4 text-center">
+        <div className="w-16 h-16 rounded-full bg-accent/20 flex items-center justify-center">
+          <svg className="w-8 h-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-foreground">Message sent!</h2>
+        <p className="text-muted-foreground max-w-sm">Thanks! We'll get back to you within 1–2 business days.</p>
+        <Button onClick={onClose} className="mt-4 bg-accent hover:bg-accent/90 text-accent-foreground">
+          Close
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 py-4 max-h-[80vh] overflow-y-auto">
