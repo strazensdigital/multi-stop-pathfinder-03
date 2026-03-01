@@ -118,7 +118,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: `${window.location.origin}/app`,
       },
     });
     if (error) setError(friendlyError(error.message));
