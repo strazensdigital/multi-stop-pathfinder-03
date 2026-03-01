@@ -46,6 +46,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auth_provider: string | null
           display_name: string | null
           email: string | null
           id: string
@@ -54,6 +55,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          auth_provider?: string | null
           display_name?: string | null
           email?: string | null
           id: string
@@ -62,6 +64,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          auth_provider?: string | null
           display_name?: string | null
           email?: string | null
           id?: string
