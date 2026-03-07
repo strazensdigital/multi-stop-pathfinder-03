@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, Zap, Route, Upload, MousePointerClick, ExternalLink, X, Check, ClipboardPaste, Link, Lock, Clock, Move, Car } from "lucide-react";
+import {
+  Zap, Upload, MousePointerClick, ExternalLink, X, Check,
+  ClipboardPaste, Lock, Clock, Move, Car, Mic, Bookmark,
+  Save, Download, Eye, MapPin, Smartphone
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import zippyLogo from "@/assets/zippy-logo.png";
 import heroPhoneBg from "@/assets/hero-phone-bg.png";
@@ -101,6 +105,91 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
     }
   };
 
+  const featureCards = [
+    {
+      icon: Zap,
+      title: "Works Instantly",
+      description: "No sign up. No tutorial. No app to download. Open the link, add your stops, done. Save it to your phone home screen and it works like a native app.",
+      pro: false,
+    },
+    {
+      icon: ClipboardPaste,
+      title: "AI Smart-Paste",
+      description: "Paste a forwarded email, a text thread, or your own messy notes. Our AI reads the text and pulls out every address automatically.",
+      pro: false,
+    },
+    {
+      icon: Mic,
+      title: "Speak Your Stops",
+      description: "Don't want to type? Just talk. Use speech-to-text to say your addresses out loud — we handle the rest.",
+      pro: false,
+    },
+    {
+      icon: Bookmark,
+      title: "Saved Address Bookmarks",
+      description: 'Save frequent stops with a nickname like "Mike\'s Pool" or "Main Warehouse." Type the name next time and our AI adds the address automatically.',
+      pro: false,
+    },
+    {
+      icon: Save,
+      title: "Save & Revisit Routes",
+      description: "Save your routes and come back to them any time. Perfect for recurring weekly stops.",
+      pro: false,
+    },
+    {
+      icon: Download,
+      title: "Export Anywhere",
+      description: "Send to Google Maps or Apple Maps in one click. Or export your full route as a CSV for records, dispatching, or sharing with your team.",
+      pro: false,
+    },
+    {
+      icon: MapPin,
+      title: "Beat the 10-Stop Limit",
+      description: "Plan up to 25 stops at once. We auto-split into legs that work perfectly with Google and Apple Maps.",
+      pro: true,
+    },
+    {
+      icon: Car,
+      title: "Live Traffic",
+      description: "Real-time traffic data via Mapbox. Every route accounts for current road conditions.",
+      pro: false,
+    },
+    {
+      icon: Move,
+      title: "Drag & Drop Override",
+      description: "Don't like the suggested order? Drag any stop to reorder it. The map updates instantly.",
+      pro: false,
+    },
+    {
+      icon: Lock,
+      title: "Stop Locking",
+      description: "Need to hit a specific stop at a set time? Lock it in. We optimize everything else around it.",
+      pro: true,
+    },
+    {
+      icon: Clock,
+      title: "Accurate ETAs",
+      description: "Add service time per stop to see exactly when you'll arrive — and finish — your day.",
+      pro: true,
+    },
+    {
+      icon: Eye,
+      title: "See Your Drive Time Instantly",
+      description: "Every stop shows the distance and drive time to get there. See your total route time at a glance before you even leave.",
+      pro: false,
+    },
+  ];
+
+  const whoItsFor = [
+    "Pool & spa technicians",
+    "Flower & parcel delivery",
+    "HVAC and home service",
+    "Realtors on property tours",
+    "Field sales reps",
+    "Landscapers with weekly routes",
+    "Anyone who sees it fits their needs",
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       {/* Spacer for fixed header */}
@@ -120,7 +209,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               lg:w-[60%] lg:h-[120%] lg:-top-[10%]
               max-lg:w-full max-lg:left-1/2 max-lg:-translate-x-1/2 max-lg:object-center"
           />
-          {/* Desktop: fade edges of the image into the background */}
           <div className="hidden lg:block absolute inset-0 bg-gradient-to-r from-[#1E293B] via-[#1E293B]/90 to-transparent" />
           <div className="hidden lg:block absolute inset-0 bg-gradient-to-t from-[#1E293B] via-transparent to-[#1E293B]/60" />
         </div>
@@ -133,14 +221,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
           <div className="container mx-auto px-5">
             <div className="max-w-2xl lg:max-w-xl">
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 md:mb-6">
-                <span className="text-white">Paste Your List. </span>
-                <span className="text-accent">Optimize Your Route.</span>
+                <span className="text-white">The Simplest Route Planner </span>
+                <span className="text-accent">on the Web.</span>
               </h1>
               <p className="text-sm sm:text-base md:text-lg text-white/70 mb-4 max-w-xl leading-relaxed">
-                The AI-powered route planner that turns messy text into professional delivery routes. Break the 10-stop limit and optimize 25 addresses in one click.
+                Drop in your addresses, hit optimize, and drive. No account needed. No ads. No bloated app to install. Just your route, ready in seconds.
               </p>
               <p className="text-xs sm:text-sm text-white/50 mb-8">
-                No login required · No credit card needed
+                No login required · No credit card needed · Works on mobile
               </p>
 
               {/* CTA Buttons */}
@@ -150,15 +238,15 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                   size="lg" 
                   className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold w-full sm:w-auto"
                 >
-                  Start Planning for Free
+                  Plan My Route — It's Free
                 </Button>
                 <Button 
-                  onClick={() => openModal('pricing')}
+                  onClick={() => openModal('how-it-works')}
                   size="lg" 
                   variant="outline"
                   className="px-8 py-4 text-lg font-semibold w-full sm:w-auto border-white/30 text-white hover:bg-white/10"
                 >
-                  See Pricing
+                  See How It Works
                 </Button>
               </div>
             </div>
@@ -166,7 +254,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* Rule of 3 Section */}
+      {/* How It Works */}
       <section className="container mx-auto px-4 pt-8 sm:pt-16 pb-16">
         <h2 className="text-3xl font-bold text-center text-foreground mb-12">How It Works</h2>
         <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
@@ -174,31 +262,31 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <Upload className="w-8 h-8 text-accent" />
             </div>
-            <h3 className="text-xl font-bold mb-2">Upload</h3>
-            <p className="text-muted-foreground">Excel/CSV or type addresses.</p>
+            <h3 className="text-xl font-bold mb-2">Add Your Stops</h3>
+            <p className="text-muted-foreground">Type your addresses, paste a messy email or text, or just speak them out loud. Our AI reads it and pulls out the addresses automatically.</p>
           </div>
           <div className="text-center">
             <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <MousePointerClick className="w-8 h-8 text-accent" />
             </div>
             <h3 className="text-xl font-bold mb-2">Optimize</h3>
-            <p className="text-muted-foreground">One-click for shortest time.</p>
+            <p className="text-muted-foreground">One button. We calculate the fastest route through all your stops using real-time traffic data.</p>
           </div>
           <div className="text-center">
             <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <ExternalLink className="w-8 h-8 text-accent" />
             </div>
-            <h3 className="text-xl font-bold mb-2">Export</h3>
-            <p className="text-muted-foreground">Send to Google/Apple Maps.</p>
+            <h3 className="text-xl font-bold mb-2">Export & Go</h3>
+            <p className="text-muted-foreground">Send to Google Maps in one click, export as CSV, or save your route to revisit later. We auto-split legs so everything works perfectly.</p>
           </div>
         </div>
       </section>
 
-      {/* Why Pros Switch — Comparison Table */}
+      {/* Comparison Table */}
       <section className="container mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold text-center text-foreground mb-3">Why Pros Switch from Standard Map Apps</h2>
+        <h2 className="text-3xl font-bold text-center text-foreground mb-3">ZippyRouter vs Standard Map Apps</h2>
         <p className="text-center text-muted-foreground mb-10 max-w-2xl mx-auto">
-          Standard map apps are great for getting from A to B. But when you have 30 stops and a deadline, you need a tool built for the job.
+          Standard map apps are great for getting from A to B. But when you have 25 stops and a deadline, you need a tool built for the job.
         </p>
         <div className="max-w-3xl mx-auto overflow-hidden rounded-lg border border-border">
           <table className="w-full text-sm">
@@ -216,14 +304,29 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 <td className="px-6 py-4 text-center font-semibold text-accent">25</td>
               </tr>
               <tr>
-                <td className="px-6 py-4 text-foreground">Route optimization</td>
-                <td className="px-6 py-4 text-center"><X className="w-5 h-5 text-destructive inline" /></td>
-                <td className="px-6 py-4 text-center"><Check className="w-5 h-5 text-accent inline" /> AI sequencing</td>
+                <td className="px-6 py-4 text-foreground">Address input</td>
+                <td className="px-6 py-4 text-center text-muted-foreground">Manual, one by one</td>
+                <td className="px-6 py-4 text-center font-semibold text-accent">Type, paste, or speak</td>
               </tr>
               <tr>
-                <td className="px-6 py-4 text-foreground">Address input</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">Manual, one-by-one</td>
-                <td className="px-6 py-4 text-center font-semibold text-accent">Paste any text list</td>
+                <td className="px-6 py-4 text-foreground">Extracts addresses from messy text</td>
+                <td className="px-6 py-4 text-center"><X className="w-5 h-5 text-destructive inline" /></td>
+                <td className="px-6 py-4 text-center"><Check className="w-5 h-5 text-accent inline" /></td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Save & reuse routes</td>
+                <td className="px-6 py-4 text-center"><X className="w-5 h-5 text-destructive inline" /></td>
+                <td className="px-6 py-4 text-center"><Check className="w-5 h-5 text-accent inline" /></td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Export to CSV</td>
+                <td className="px-6 py-4 text-center"><X className="w-5 h-5 text-destructive inline" /></td>
+                <td className="px-6 py-4 text-center"><Check className="w-5 h-5 text-accent inline" /></td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 text-foreground">Saved address bookmarks</td>
+                <td className="px-6 py-4 text-center"><X className="w-5 h-5 text-destructive inline" /></td>
+                <td className="px-6 py-4 text-center"><Check className="w-5 h-5 text-accent inline" /></td>
               </tr>
               <tr>
                 <td className="px-6 py-4 text-foreground">Live traffic</td>
@@ -235,120 +338,44 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 <td className="px-6 py-4 text-center text-muted-foreground">N/A</td>
                 <td className="px-6 py-4 text-center font-semibold text-accent">One-click</td>
               </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* How ZippyRouter Compares — Competitor Table */}
-      <section className="container mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold text-center text-foreground mb-3">How ZippyRouter Compares</h2>
-        <p className="text-center text-muted-foreground mb-10 max-w-2xl mx-auto">
-          See how we stack up against the competition.
-        </p>
-        <div className="max-w-4xl mx-auto overflow-x-auto">
-          <table className="w-full text-sm min-w-[500px]">
-            <thead>
-              <tr className="bg-muted/50">
-                <th className="text-left px-6 py-4 font-semibold text-foreground">Feature</th>
-                <th className="text-center px-6 py-4 font-semibold text-accent border-l-2 border-accent/30 bg-accent/5">ZippyRouter</th>
-                <th className="text-center px-6 py-4 font-semibold text-muted-foreground">Competitor R</th>
-                <th className="text-center px-6 py-4 font-semibold text-muted-foreground">Competitor C</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
               <tr>
-                <td className="px-6 py-4 text-foreground">Max Stops</td>
-                <td className="px-6 py-4 text-center border-l-2 border-accent/30 bg-accent/5 font-semibold text-accent"><Check className="w-4 h-4 text-accent inline mr-1" />25 Stops</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">20 Stops</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">10 Stops</td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 text-foreground">Address Input</td>
-                <td className="px-6 py-4 text-center border-l-2 border-accent/30 bg-accent/5 font-semibold text-accent"><Check className="w-4 h-4 text-accent inline mr-1" />AI Smart-Paste</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">Upload/Manual</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">Manual/Camera</td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 text-foreground">Optimization</td>
-                <td className="px-6 py-4 text-center border-l-2 border-accent/30 bg-accent/5 font-semibold text-accent"><Check className="w-4 h-4 text-accent inline mr-1" />One-Click AI</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">Basic</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">Advanced</td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 text-foreground">Setup Time</td>
-                <td className="px-6 py-4 text-center border-l-2 border-accent/30 bg-accent/5 font-semibold text-accent"><Check className="w-4 h-4 text-accent inline mr-1" />Instant</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">Moderate</td>
-                <td className="px-6 py-4 text-center text-muted-foreground">Slow</td>
+                <td className="px-6 py-4 text-foreground">No account needed</td>
+                <td className="px-6 py-4 text-center"><X className="w-5 h-5 text-destructive inline" /></td>
+                <td className="px-6 py-4 text-center"><Check className="w-5 h-5 text-accent inline" /></td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      {/* Everything You Need Section */}
+      {/* Feature Cards */}
       <section className="container mx-auto px-4 py-16">
         <h2 className="text-3xl font-bold text-center text-foreground mb-3">Everything You Need to Finish Your Route Faster</h2>
         <p className="text-center text-muted-foreground mb-10 max-w-2xl mx-auto">
           Built for drivers, dispatchers, and field teams who need to get more done in less time.
         </p>
         <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          <Card className="p-6 border hover:border-accent/50 transition-colors hover:shadow-lg">
-            <CardContent className="pt-4">
-              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
-                <ClipboardPaste className="w-6 h-6 text-accent" />
-              </div>
-              <h3 className="text-lg font-bold mb-2 text-foreground">AI Smart-Paste</h3>
-              <p className="text-muted-foreground text-sm">Paste messy text from emails or notes. Our AI extracts addresses in seconds.</p>
-            </CardContent>
-          </Card>
-          <Card className="p-6 border hover:border-accent/50 transition-colors hover:shadow-lg">
-            <CardContent className="pt-4">
-              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
-                <Link className="w-6 h-6 text-accent" />
-              </div>
-              <h3 className="text-lg font-bold mb-2 text-foreground">The Google Bypass</h3>
-              <p className="text-muted-foreground text-sm">Plan 25 stops at once. We auto-split your route into easy 9-stop legs for Google/Apple Maps.</p>
-            </CardContent>
-          </Card>
-          <Card className="p-6 border-2 border-accent/30 hover:border-accent/60 transition-colors hover:shadow-lg relative">
-            <Badge variant="outline" className="absolute top-3 right-3 text-[10px] border-accent/40 text-accent">PRO</Badge>
-            <CardContent className="pt-4">
-              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
-                <Lock className="w-6 h-6 text-accent" />
-              </div>
-              <h3 className="text-lg font-bold mb-2 text-foreground">Stop Locking</h3>
-              <p className="text-muted-foreground text-sm">Lock 'must-visit' stops at specific times. The AI optimizes the rest around your schedule.</p>
-            </CardContent>
-          </Card>
-          <Card className="p-6 border-2 border-accent/30 hover:border-accent/60 transition-colors hover:shadow-lg relative">
-            <Badge variant="outline" className="absolute top-3 right-3 text-[10px] border-accent/40 text-accent">PRO</Badge>
-            <CardContent className="pt-4">
-              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
-                <Clock className="w-6 h-6 text-accent" />
-              </div>
-              <h3 className="text-lg font-bold mb-2 text-foreground">Accurate ETAs</h3>
-              <p className="text-muted-foreground text-sm">Add service minutes for each stop to see exactly when you'll finish your day.</p>
-            </CardContent>
-          </Card>
-          <Card className="p-6 border hover:border-accent/50 transition-colors hover:shadow-lg">
-            <CardContent className="pt-4">
-              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
-                <Move className="w-6 h-6 text-accent" />
-              </div>
-              <h3 className="text-lg font-bold mb-2 text-foreground">Manual Override</h3>
-              <p className="text-muted-foreground text-sm">Don't like the AI path? Simply drag and drop stops to reorder. The map updates instantly.</p>
-            </CardContent>
-          </Card>
-          <Card className="p-6 border hover:border-accent/50 transition-colors hover:shadow-lg">
-            <CardContent className="pt-4">
-              <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
-                <Car className="w-6 h-6 text-accent" />
-              </div>
-              <h3 className="text-lg font-bold mb-2 text-foreground">Live Traffic</h3>
-              <p className="text-muted-foreground text-sm">Powered by Mapbox real-time data to avoid congestion and save on fuel.</p>
-            </CardContent>
-          </Card>
+          {featureCards.map((card) => (
+            <Card
+              key={card.title}
+              className={`p-6 transition-colors hover:shadow-lg relative ${
+                card.pro
+                  ? "border-2 border-accent/30 hover:border-accent/60"
+                  : "border hover:border-accent/50"
+              }`}
+            >
+              {card.pro && (
+                <Badge variant="outline" className="absolute top-3 right-3 text-[10px] border-accent/40 text-accent">PRO</Badge>
+              )}
+              <CardContent className="pt-4">
+                <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
+                  <card.icon className="w-6 h-6 text-accent" />
+                </div>
+                <h3 className="text-lg font-bold mb-2 text-foreground">{card.title}</h3>
+                <p className="text-muted-foreground text-sm">{card.description}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
         <div className="text-center mt-10">
           <Button 
@@ -356,76 +383,47 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             size="lg" 
             className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-4 text-lg font-semibold"
           >
-            Start Planning Your First Route (Free)
+            Plan My Route — It's Free
           </Button>
         </div>
       </section>
 
-      {/* PAS Narrative */}
+      {/* Who It's For */}
       <section className="bg-muted/30 py-16">
         <div className="container mx-auto px-4 max-w-3xl text-center">
-          <p className="text-base sm:text-lg text-foreground leading-relaxed">
-            Still manually typing every stop into your map app? One typo sends you 20 minutes across town. Wasted gas, late deliveries, and the stress of managing 30 stops in an app built for 10. <span className="font-semibold text-accent">ZippyRouter turns your messy text into a professional route in one click.</span>
+          <h2 className="text-3xl font-bold text-foreground mb-4">Built for Anyone With More Than 3 Stops</h2>
+          <p className="text-muted-foreground mb-8 text-base sm:text-lg">
+            If you're manually typing every stop into Google Maps, you're wasting time you don't have.
           </p>
-        </div>
-      </section>
-
-      {/* Feature Highlights */}
-      <section id="features" className="container mx-auto px-4 py-16">
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          <Card className="text-center p-6 border-2 hover:border-accent/50 transition-colors">
-            <CardContent className="pt-6">
-              <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-8 h-8 text-accent" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Beat the 10-Stop Limit</h3>
-              <p className="text-muted-foreground">
-                Plan your entire day without manual headache. No more splitting routes across multiple tabs.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="text-center p-6 border-2 hover:border-accent/50 transition-colors">
-            <CardContent className="pt-6">
-              <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Zap className="w-8 h-8 text-accent" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Military-Grade Accuracy</h3>
-              <p className="text-muted-foreground">
-                Real-time traffic data from global logistics fleets powers every route calculation.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="text-center p-6 border-2 hover:border-accent/50 transition-colors">
-            <CardContent className="pt-6">
-              <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Route className="w-8 h-8 text-accent" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">25 Stops</h3>
-              <p className="text-muted-foreground">
-                Pro users can optimize routes with up to 25 stops in seconds. Perfect for delivery fleets and field teams.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="flex flex-wrap justify-center gap-3">
+            {whoItsFor.map((item) => (
+              <Badge key={item} variant="secondary" className="text-sm px-4 py-2">
+                {item}
+              </Badge>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Stats Section */}
-      <section className="bg-muted/30 py-16">
+      <section className="py-16">
         <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto text-center">
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto text-center">
             <div>
-              <div className="text-3xl font-bold text-accent mb-2">30%</div>
-              <p className="text-muted-foreground">Average Time Saved</p>
+              <div className="text-3xl font-bold text-accent mb-2">25 Stops</div>
+              <p className="text-muted-foreground">Optimize a full day's worth of stops on Pro</p>
             </div>
             <div>
-              <div className="text-3xl font-bold text-accent mb-2">25%</div>
-              <p className="text-muted-foreground">Fuel Cost Reduction</p>
+              <div className="text-3xl font-bold text-accent mb-2">1 Click</div>
+              <p className="text-muted-foreground">From messy text to a ready-to-drive route</p>
             </div>
             <div>
-              <div className="text-3xl font-bold text-accent mb-2">25</div>
-              <p className="text-muted-foreground">Stops (Pro)</p>
+              <div className="text-3xl font-bold text-accent mb-2">Zero Install</div>
+              <p className="text-muted-foreground">Runs in your browser. No app store. No updates.</p>
+            </div>
+            <div>
+              <div className="text-3xl font-bold text-accent mb-2">Mobile-Ready</div>
+              <p className="text-muted-foreground">Works in any browser. Save to your home screen for instant access.</p>
             </div>
           </div>
         </div>

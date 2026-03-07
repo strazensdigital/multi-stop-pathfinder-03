@@ -1,48 +1,68 @@
 
 
-## Landing Page Copy Overhaul
+## Plan: Fix Landing Page Pricing Flow, Stripe Key, and Annual Billing
 
-This is a comprehensive copy update to `src/components/LandingPage.tsx` plus a button color fix in `src/components/MapboxRoutePlanner.tsx`.
+### Problem Summary
 
-### Changes Summary
+1. **Landing page pricing button behavior**: When clicking the Pro tier buttons in the pricing modal opened from the landing page, if the user isn't logged in, it calls `onGetStarted` which navigates to `/app` instead of opening the auth dialog (like the hamburger menu does).
+2. **Stripe test key**: You're currently using a test key -- you should switch to a live key.
+3. **Annual product**: Already exists in Stripe (product `prod_TwmQLCCvKV7BL1` with price `price_1Sysro3EdvVx6r8ZHYjmazba` at $69/year). No new Stripe product needed.
+4. **Cancellation handling**: When a user stops paying, the `check-subscription` edge function already handles this -- it checks Stripe for active subscriptions and updates the profile to "free" if none are found. So yes, cancellation/non-payment automatically downgrades the user.
 
-**1. Hero Section (lines 135-163)**
-- Headline → "The Simplest Route Planner on the Web."
-- Subheadline → new copy about dropping addresses, no account, no ads
-- Trust line → "No login required · No credit card needed · Works on mobile"
-- Primary CTA → "Plan My Route — It's Free"
-- Secondary CTA → "See How It Works" (opens how-it-works modal instead of pricing)
+---
 
-**2. How It Works (lines 170-195)**
-- Step 1: "Add Your Stops" — type, paste, or speak
-- Step 2: "Optimize" — one button, real-time traffic
-- Step 3: "Export & Go" — updated copy per instructions (Google Maps one-click, CSV, save, auto-split)
+### Changes
 
-**3. Comparison Table (lines 197-241)**
-- Replace current rows with the exact 9-row table from the brief (Max stops, Address input, Extracts addresses, Save & reuse, Export CSV, Bookmarks, Live traffic, Export to Maps, No account needed)
-- Remove "Route optimization / AI sequencing" row
-- Remove the second competitor comparison table entirely (lines 243-287)
+#### 1. Fix PricingModal on Landing Page
 
-**4. Feature Cards (lines 289-362)**
-- Replace 6 cards with 12 cards (the 11 from brief + new "See Your Drive Time Instantly")
-- Cards with PRO badge: "Beat the 10-Stop Limit", "Stop Locking", "Accurate ETAs"
-- New icons imported: Mic, Bookmark, Save, Download, Timer, Eye (lucide-react)
+**File: `src/components/LandingPage.tsx`**
 
-**5. Remove PAS narrative section (lines 364-371)** — contains "AI-powered" language
+- Add auth state awareness by importing `useAuth` and `AuthDialog`
+- Change the `onGetStarted` callback passed to `PricingModal` so it opens the auth dialog instead of navigating to `/app`
+- Add an `AuthDialog` component to the landing page
 
-**6. Remove old Feature Highlights section (lines 373-411)** — contains "Military-Grade Accuracy" and "AI sequencing" references
+This way, when an unauthenticated user clicks "Get Pro" in the pricing modal on the landing page, they see the login/signup dialog (same as the hamburger menu behavior) instead of being redirected.
 
-**7. New "Who It's For" section** — added after feature cards
-- Title: "Built for Anyone With More Than 3 Stops"
-- Intro + list of professions
+#### 2. Update PricingModal Pro Features
 
-**8. Stats Section (lines 414-432)**
-- Replace with 4 stats: 25 Stops, 1 Click, Zero Install, Mobile-Ready
+**File: `src/components/modals/PricingModal.tsx`**
 
-**9. Google Maps button color fix** in `MapboxRoutePlanner.tsx` line 1325
-- Change from red (`hsl(348, 83%, 47%)`) to orange (e.g. `hsl(30, 90%, 50%)`)
+- Change "Unlimited stops" to "25 stops" in the Pro plan feature list to match the FAQ
 
-### Files Modified
-- `src/components/LandingPage.tsx` — full copy rewrite
-- `src/components/MapboxRoutePlanner.tsx` — button color change (1 line)
+#### 3. Stripe Live Key
+
+This is a manual step for you:
+- Go to your [Stripe Dashboard](https://dashboard.stripe.com/apikeys) and copy the **live** secret key (starts with `sk_live_...`)
+- Then we can update the `STRIPE_SECRET_KEY` secret in Supabase with the live key
+- **Important**: Make sure your live Stripe account has the same products/prices, or create new ones. The price IDs will be different between test and live mode.
+
+#### 4. No Database Changes Needed
+
+- The `profiles` table already has `plan` and `plan_source` columns
+- The `check-subscription` function already syncs plan status from Stripe on every call
+- When a subscription is canceled or expires, Stripe marks it inactive, and `check-subscription` returns `plan: "free"` and updates the profile accordingly
+
+---
+
+### How Cancellation Works (Already Implemented)
+
+```text
+User stops paying
+       |
+       v
+Stripe marks subscription inactive/canceled
+       |
+       v
+Next time check-subscription runs (on page load / login)
+       |
+       v
+No active subscription found -> profile.plan set to "free"
+       |
+       v
+User loses Pro features
+```
+
+### Technical Details
+
+The key fix is in `LandingPage.tsx` where the `PricingModal` receives `onGetStarted={onGetStarted}` which calls `navigate('/app')`. Instead, it should open an auth dialog locally, matching the hamburger menu pattern. After successful auth, the user can then proceed to checkout.
 
