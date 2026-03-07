@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Menu, X, MapPin, Trash2, Loader2, CreditCard, Crown, Star, Plus } from "lucide-react";
+import { Menu, X, MapPin, Trash2, Loader2, CreditCard, Crown, Star, Plus, Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AuthDialog } from "@/components/AuthDialog";
@@ -10,6 +10,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { UsageDashboard } from "@/components/UsageDashboard";
+import { supabase } from "@/integrations/supabase/client";
 
 // Mapbox token + geocoding helpers (duplicated inline to avoid coupling)
 const DEFAULT_MAPBOX_TOKEN = "pk.eyJ1Ijoia3VsbHVtdXV1IiwiYSI6ImNtZTZqb2d0ODEzajYybHB1Mm0xbzBva2YifQ.zDdnxTggkS-qfrNIoLJwTw";
@@ -90,7 +91,10 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
     setAddressSuggestions([]);
     setShowAddrSuggestions(false);
   }, []);
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, refreshProfile } = useAuth();
+  const [editingName, setEditingName] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [savingName, setSavingName] = useState(false);
   const { savedRoutes, loadingRoutes, fetchRoutes, deleteRoute } = useRoutes();
   const { bookmarks, loadingBookmarks, fetchBookmarks, addBookmark, deleteBookmark } = useBookmarks();
   const { openPortal } = useSubscription();
@@ -150,14 +154,71 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
             <div className="space-y-2">
               <h2 className="text-lg font-bold text-foreground">Account</h2>
               {user ? (
-                <div className="space-y-1">
-                  {greeting && (
-                    <p className="text-base font-semibold text-foreground">
-                      Hi, {greeting}! 👋
-                    </p>
-                  )}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    {editingName ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          placeholder="Display name"
+                          className="min-h-[36px] text-sm flex-1"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              (async () => {
+                                if (!editName.trim()) return;
+                                setSavingName(true);
+                                await supabase.from("profiles").update({ display_name: editName.trim() }).eq("id", user.id);
+                                refreshProfile();
+                                setEditingName(false);
+                                setSavingName(false);
+                              })();
+                            }
+                            if (e.key === 'Escape') setEditingName(false);
+                          }}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          disabled={savingName || !editName.trim()}
+                          onClick={async () => {
+                            if (!editName.trim()) return;
+                            setSavingName(true);
+                            await supabase.from("profiles").update({ display_name: editName.trim() }).eq("id", user.id);
+                            refreshProfile();
+                            setEditingName(false);
+                            setSavingName(false);
+                          }}
+                        >
+                          {savingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-green-500" />}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-1">
+                        <p className="text-base font-semibold text-foreground">
+                          Hi, {greeting || 'there'}! 👋
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setEditName(profile?.display_name || "");
+                            setEditingName(true);
+                          }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     {user.email} · Plan: {planLabel}
+                    {profile?.auth_provider && profile.auth_provider !== 'email' && (
+                      <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded capitalize">{profile.auth_provider}</span>
+                    )}
                   </p>
                 </div>
               ) : (
