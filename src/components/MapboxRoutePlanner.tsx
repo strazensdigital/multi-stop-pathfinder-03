@@ -1322,7 +1322,7 @@ const MapboxRoutePlanner: React.FC<MapboxRoutePlannerProps> = ({ routeToLoad, on
                 return (
                   <Button
                     className="w-full min-h-[48px] text-base font-medium"
-                    style={{ background: 'linear-gradient(135deg, hsl(348, 83%, 47%), hsl(348, 83%, 40%))' }}
+                    style={{ background: 'linear-gradient(135deg, hsl(30, 90%, 50%), hsl(30, 90%, 43%))' }}
                     onClick={() => {
                       if (isMultiLeg) {
                         setExportLegs(urls);
