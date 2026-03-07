@@ -7,6 +7,7 @@ interface UserProfile {
   email: string | null;
   plan: string | null;
   display_name: string | null;
+  auth_provider: string | null;
 }
 
 interface AuthContextType {
@@ -29,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = useCallback((userId: string) => {
     supabase
       .from("profiles")
-      .select("id, email, plan, display_name")
+      .select("id, email, plan, display_name, auth_provider")
       .eq("id", userId)
       .single()
       .then(({ data }) => {
