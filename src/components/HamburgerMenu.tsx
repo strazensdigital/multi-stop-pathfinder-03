@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Menu, X, MapPin, Trash2, Loader2, CreditCard, Crown, Star, Plus } from "lucide-react";
+import { Menu, X, MapPin, Trash2, Loader2, CreditCard, Crown, Star, Plus, Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AuthDialog } from "@/components/AuthDialog";
@@ -90,7 +90,10 @@ export function HamburgerMenu({ onLoadRoute }: HamburgerMenuProps) {
     setAddressSuggestions([]);
     setShowAddrSuggestions(false);
   }, []);
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, refreshProfile } = useAuth();
+  const [editingName, setEditingName] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [savingName, setSavingName] = useState(false);
   const { savedRoutes, loadingRoutes, fetchRoutes, deleteRoute } = useRoutes();
   const { bookmarks, loadingBookmarks, fetchBookmarks, addBookmark, deleteBookmark } = useBookmarks();
   const { openPortal } = useSubscription();
